@@ -13,9 +13,7 @@ from model_src.models.lstm_model import StockLSTM
 
 class LitStockModel(pl.LightningModule):
     """
-    PyTorch Lightning モデルラッパー。
-
-    StockLSTM モデルを使用し、学習・検証ロジックを定義。
+    StockLSTM モデルを使用し、学習・検証ロジックを定義
 
     Args:
         input_size (int): 入力特徴量の次元
