@@ -3,7 +3,7 @@ import pandas as pd
 
 def add_moving_averages(df: pd.DataFrame, short_window: int = 5, long_window: int = 20) -> pd.DataFrame:
     """
-    DFに移動平均（短期・長期）を追加する
+    DFに移動平均（短期・長期）を追加
 
     Args:
         df (pd.DataFrame): 株価データ（'Close'列を含む）
@@ -19,7 +19,7 @@ def add_moving_averages(df: pd.DataFrame, short_window: int = 5, long_window: in
 
 def add_rsi(df: pd.DataFrame, period: int = 14) -> pd.DataFrame:
     """
-    DFにRSI（Relative Strength Index）を追加する
+    DFにRSI（Relative Strength Index）を追加
 
     Args:
         df (pd.DataFrame): 株価データ（'Close'列を含む）
@@ -37,7 +37,7 @@ def add_rsi(df: pd.DataFrame, period: int = 14) -> pd.DataFrame:
 
 def add_macd(df: pd.DataFrame, fast: int = 12, slow: int = 26) -> pd.DataFrame:
     """
-    DFにMACD（Moving Average Convergence Divergence）を追加する
+    DFにMACD（Moving Average Convergence Divergence）を追加
 
     Args:
         df (pd.DataFrame): 株価データ（'Close'列を含む）

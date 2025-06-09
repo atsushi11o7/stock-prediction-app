@@ -35,15 +35,15 @@ class LitStockModel(pl.LightningModule):
             hidden_size=hidden_size,
             num_layers=num_layers,
             dropout=dropout,
-            output_size=7
+            output_size=12
         )
 
     def forward(self, x):
         return self.model(x)
 
     def training_step(self, batch, batch_idx):
-        x, y = batch  # y: [batch_size, 7]
-        y_hat = self(x)  # [batch_size, 7]
+        x, y = batch  # y: [batch_size, 12]
+        y_hat = self(x)  # [batch_size, 12]
         loss = F.mse_loss(y_hat, y)
         self.log("train_loss", loss)
         return loss

@@ -10,14 +10,14 @@ import os
 repo_dir = Path(__file__).absolute().parents[2]
 sys.path.append(repo_dir.as_posix())
 
-def fetch_basic_price_data(ticker: str, period: str = '1y', interval: str = '1d') -> pd.DataFrame:
+def fetch_basic_price_data(ticker: str, period: str = '3y', interval: str = '1mo') -> pd.DataFrame:
     """
     yfinance を使って株価の OHLCV データを取得する。
 
     Args:
         ticker (str): 株式のティッカーシンボル（ex.'6758.T'）
-        period (str): データ取得期間（ex.'1y', '6mo'）
-        interval (str): 取得間隔（ex.'1d', '1wk'）
+        period (str): データ取得期間（ex.'3y', '1y'）
+        interval (str): 取得間隔（ex.'1d', '1mo'）
 
     Returns:
         pd.DataFrame: Open, High, Low, Close, Volume を含む株価データフレーム
@@ -40,10 +40,10 @@ def fetch_fundamentals(ticker: str) -> dict:
     """
     info = yf.Ticker(ticker).info
     return {
-        'MarketCap': info.get('marketCap', None),
-        'PER': info.get('trailingPE', None),
-        'PBR': info.get('priceToBook', None),
-        'Sector': info.get('sector', None)
+        'MarketCap': info.get('marketCap', 0),
+        'PER': info.get('trailingPE', 0),
+        'PBR': info.get('priceToBook', 0),
+        'Sector': info.get('sector', 'Unknown')
     }
 
 def merge_price_and_fundamentals(price_df: pd.DataFrame, fundamentals: dict) -> pd.DataFrame:
@@ -79,10 +79,9 @@ def save_to_csv(df: pd.DataFrame, ticker: str, folder: str = 'data/raw'):
     df.to_csv(file_path, index=False)
     print(f"Data saved to CSV at {file_path}")
 
-
 if __name__ == '__main__':
-    ticker = '6758.T'  # ex.ソニーグループ
-    price_df = fetch_basic_price_data(ticker)
+    ticker = '6758.T'  # 例: ソニーグループ
+    price_df = fetch_basic_price_data(ticker, period='3y', interval='1mo')
     fundamentals = fetch_fundamentals(ticker)
     full_df = merge_price_and_fundamentals(price_df, fundamentals)
     save_to_csv(full_df, ticker)

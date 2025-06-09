@@ -8,7 +8,7 @@ import os
 
 def predict_future(data_dir: str, checkpoint_path: str, output_path: str = "predictions.csv"):
     """
-    保存されたモデルを使って未来7営業日の株価を予測し、CSVに保存する。
+    保存されたモデルを使って未来7営業日の株価を予測し、CSVに保存
 
     Args:
         data_dir (str): データフォルダのパス（学習時と同様に銘柄CSVが置いてあるディレクトリ）

@@ -19,14 +19,15 @@ class LSTMDataset(Dataset):
     株価予測のための時系列データセット
 
     OHLCV、テクニカル指標、ファンダメンタル情報、感情スコア、
-    セクター、ティッカー情報の埋め込みを含む時系列データを用いて、次の7営業日の終値を予測する
+    セクター、ティッカー情報の埋め込みを含む時系列データを用いて、
+    次の12か月（1か月ごとの終値）の株価を予測する
 
     Attributes:
         seq_len (int): 入力時系列長
         df (pd.DataFrame): 処理済みデータフレーム
         feature_cols (list): 使用する特徴量名リスト
         values (np.ndarray): 特徴量の値
-        targets (np.ndarray): 7日先の終値
+        targets (np.ndarray): 将来12か月分の終値
         sector_embedding (dict): セクター埋め込み辞書
         ticker_embedding (dict): ティッカー埋め込み辞書
         valid_idx (list): 有効なデータのインデックス
@@ -42,14 +43,16 @@ class LSTMDataset(Dataset):
         ]
 
         self.values = self.df[self.feature_cols].values.astype(np.float32)
-        self.targets = self.df['Close'].shift(-1).rolling(7).apply(lambda x: x[-1] if len(x) == 7 else np.nan)
-        self.targets = self.targets.shift(-6).values.astype(np.float32)
+        self.targets = self.df['Close'].shift(-1).rolling(252).apply(
+            lambda x: x[::21].tolist() if len(x) == 252 else np.full(12, np.nan)
+        )
+        self.targets = self.targets.shift(-251).dropna().tolist()
+        self.targets = np.array(self.targets, dtype=np.float32)
 
         self.sector_embedding = sector_embedding if sector_embedding is not None else {}
         self.ticker_embedding = ticker_embedding if ticker_embedding is not None else {}
 
-        self.valid_idx = [i for i in range(len(self.values) - seq_len - 7)
-                          if not np.isnan(self.targets[i + seq_len])]
+        self.valid_idx = [i for i in range(len(self.targets)) if i + seq_len < len(self.values)]
 
     def __len__(self):
         return len(self.valid_idx)
@@ -57,7 +60,7 @@ class LSTMDataset(Dataset):
     def __getitem__(self, i):
         idx = self.valid_idx[i]
         x = self.values[idx: idx + self.seq_len]
-        y = self.targets[idx + self.seq_len: idx + self.seq_len + 7]
+        y = self.targets[i]
 
         sector_embed = self.sector_embedding.get(self.df.iloc[idx]['Sector'], np.zeros(8, dtype=np.float32))
         sector_embed = np.repeat(sector_embed[np.newaxis, :], self.seq_len, axis=0)

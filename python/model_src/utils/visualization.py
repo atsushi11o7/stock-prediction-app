@@ -32,7 +32,7 @@ def plot_predictions(df: pd.DataFrame):
 
 def plot_predictions_with_actual(df_pred: pd.DataFrame, df_val: pd.DataFrame, val_dataset):
     """
-    実測株価と予測株価を比較するグラフを作成・保存する。
+    実測株価と予測株価を比較するグラフを作成・保存
 
     Args:
         df_pred (pd.DataFrame): 予測結果データフレーム
