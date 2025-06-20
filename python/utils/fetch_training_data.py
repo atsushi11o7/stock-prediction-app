@@ -12,7 +12,7 @@ sys.path.append(repo_dir.as_posix())
 
 def fetch_basic_price_data(ticker: str, period: str = '3y', interval: str = '1mo') -> pd.DataFrame:
     """
-    yfinance を使って株価の OHLCV データを取得する。
+    yfinance を使って株価の OHLCV データを取得
 
     Args:
         ticker (str): 株式のティッカーシンボル（ex.'6758.T'）
@@ -30,7 +30,7 @@ def fetch_basic_price_data(ticker: str, period: str = '3y', interval: str = '1mo
 
 def fetch_fundamentals(ticker: str) -> dict:
     """
-    yfinance から株式のファンダメンタル情報を取得する
+    yfinance から株式のファンダメンタル情報を取得
 
     Args:
         ticker (str): 株式のティッカーシンボル
@@ -63,7 +63,7 @@ def merge_price_and_fundamentals(price_df: pd.DataFrame, fundamentals: dict) -> 
 
 def save_to_csv(df: pd.DataFrame, ticker: str, folder: str = 'data/raw'):
     """
-    データフレームをCSVファイルとして保存する
+    データフレームをCSVファイルとして保存
 
     Args:
         df (pd.DataFrame): 保存対象のデータフレーム
