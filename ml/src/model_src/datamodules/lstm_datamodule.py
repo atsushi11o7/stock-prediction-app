@@ -12,7 +12,7 @@ import pytorch_lightning as pl
 repo_dir = Path(__file__).absolute().parents[3]
 sys.path.append(repo_dir.as_posix())
 
-from python.utils.technical_indicators import add_moving_averages, add_rsi, add_macd
+from ml.src.features.technical_indicators import add_moving_averages, add_rsi, add_macd
 
 class LSTMDataset(Dataset):
     """
