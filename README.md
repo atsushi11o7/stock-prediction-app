@@ -74,24 +74,28 @@ MLOps学習用
 
 ```mermaid
 flowchart LR
-    subgraph Frontend
-      FE[Next.js (TypeScript)]  
-    end
-    subgraph Backend
-      BE[Rails API]  
-      DB[(Postgres)]
-      BE --> DB
-    end
-    subgraph MLOps
-      MLflow[MLflow／定期学習バッチ]
-      Sage[Amazon SageMaker（推論）]
-      S3[(S3 バケット)]
-      MLflow --> Sage
-      Sage --> S3
-      BE --> S3
-    end
-    subgraph Explanation
-      LLM[OpenAI API / Hugging Face LLM]
-      BE --> LLM
-    end
-    FE --> BE
+  subgraph Frontend
+    FE["Next.js (TypeScript)"]
+  end
+
+  subgraph Backend
+    BE["Rails API"]
+    DB[(Postgres)]
+    BE --> DB
+  end
+
+  subgraph MLOps
+    MLflow["MLflow／定期学習バッチ"]
+    Sage["Amazon SageMaker（推論）"]
+    S3[(S3 バケット)]
+    MLflow --> Sage
+    Sage --> S3
+    BE --> S3
+  end
+
+  subgraph Explanation
+    LLM["OpenAI API / Hugging Face LLM"]
+    BE --> LLM
+  end
+
+  FE --> BE
