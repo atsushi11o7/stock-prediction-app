@@ -1,0 +1,14 @@
+{
+  "name": "Frontend Dev Container",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": "../.."
+  },
+  "workspaceFolder": "/workspace/frontend",
+  "mounts": [
+    "source=${localWorkspaceFolder},target=/workspace/frontend,type=bind"
+  ],
+  "forwardPorts": [3000, 6006, 9229],
+  "remoteUser": "node",
+  "updateRemoteUserUID": true
+}
