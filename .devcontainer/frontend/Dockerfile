@@ -19,7 +19,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tree \
  && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /workspace/frontend
+WORKDIR /workspace
 
 RUN mkdir -p /workspace && chown -R node:node /workspace
 

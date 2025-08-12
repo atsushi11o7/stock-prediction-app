@@ -4,10 +4,8 @@
     "dockerfile": "Dockerfile",
     "context": "../.."
   },
-  "workspaceFolder": "/workspace/frontend",
-  "mounts": [
-    "source=${localWorkspaceFolder},target=/workspace/frontend,type=bind"
-  ],
+  "workspaceFolder": "/workspace",
+  "workspaceMount": "source=${localWorkspaceFolder}/../..,target=/workspace,type=bind",
   "forwardPorts": [3000, 6006, 9229],
   "remoteUser": "node",
   "updateRemoteUserUID": true
