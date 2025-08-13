@@ -17,6 +17,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tzdata \
     ca-certificates \
     tree \
+    procps \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /workspace
