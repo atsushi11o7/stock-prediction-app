@@ -19,6 +19,10 @@
   --text-1: #ffffff;     /* 白（見出し/アクティブ） */
   --text-2: #e6e6ea;     /* 明るい本文 */
   --text-3: #a3a3b2;     /* サブ */
+
+  /* 成功/失敗カラー */
+  --success: #34d399; /* emerald-400 相当 */
+  --danger:  #f87171; /* rose-400 相当 */
 }
 
 @theme inline {
@@ -38,6 +42,9 @@
   --color-text-1: var(--text-1);
   --color-text-2: var(--text-2);
   --color-text-3: var(--text-3);
+
+  --color-success: var(--success);
+  --color-danger: var(--danger);
 }
 
 /* @media (prefers-color-scheme: light) {
