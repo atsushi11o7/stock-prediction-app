@@ -1,26 +1,94 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* --background: #ffffff;
+  --foreground: #171717; */
+
+  /* Base */
+  --background: #0b0b0f;  /* ページ背景：ほぼ黒 */
+  --panel:      #1e1f24;  /* パネル(サイドバー/カード)：背景より明るいグレー */
+  --surface-1:  #24262c;  /* ホバー/インタラクティブ背景 */
+  --surface-2:  #2b2e35;  /* さらに明るい段差・強調 */
+
+  /* Brand Purple */
+  --brand-500: #8e2de2;  /* メイン紫 */
+  --brand-600: #7a23d4;  /* 濃い紫（アクティブ） */
+  --brand-700: #6618c7;  /* さらに濃い影寄り */
+
+  /* Text */
+  --text-1: #ffffff;     /* 白（見出し/アクティブ） */
+  --text-2: #e6e6ea;     /* 明るい本文 */
+  --text-3: #a3a3b2;     /* サブ */
+
+  /* 成功/失敗カラー */
+  --success: #34d399; /* emerald-400 相当 */
+  --danger:  #f87171; /* rose-400 相当 */
 }
 
 @theme inline {
   --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --color-foreground: var(--text-1);
+  --font-sans: var(--font-noto-sans-jp);
   --font-mono: var(--font-geist-mono);
+
+  --color-panel:      var(--panel);
+  --color-surface-1:  var(--surface-1);
+  --color-surface-2:  var(--surface-2);
+
+  --color-brand-500: var(--brand-500);
+  --color-brand-600: var(--brand-600);
+  --color-brand-700: var(--brand-700);
+
+  --color-text-1: var(--text-1);
+  --color-text-2: var(--text-2);
+  --color-text-3: var(--text-3);
+
+  --color-success: var(--success);
+  --color-danger: var(--danger);
 }
 
-@media (prefers-color-scheme: dark) {
+/* @media (prefers-color-scheme: light) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #ffffff;
+    --panel:      #f6f7fb;
+    --surface-1:  #eef0f6;
+    --surface-2:  #e4e8f1;
+    --text-1: #0f0f14;
+    --text-2: #1b1b22;
+    --text-3: #6b6b75;
   }
-}
+} */
 
 body {
   background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  color: var(--text-1);
+  font-family: var(--font-noto-sans-jp);
+}
+
+/* a の既定（青＋下線）削除 */
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* 横スクロール用クラス */
+.scroll-x {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: var(--color-surface-2) transparent;
+}
+
+/* Chrome, Edge, Safari */
+.scroll-x::-webkit-scrollbar {
+  height: 8px;
+}
+
+.scroll-x::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scroll-x::-webkit-scrollbar-thumb {
+  background: var(--color-surface-2);
+  border-radius: 4px;
 }

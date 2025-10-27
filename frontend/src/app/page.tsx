@@ -1,103 +1,119 @@
+// src/app/page.tsx
 import Image from "next/image";
 
-export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+import RightRail from "@/components/organisms/RightRail";
+import RailCard from "@/components/molecules/RailCard";
+import StockForecastCard from "@/components/organisms/StockForecastCard";
+import TickerScroller, { type TickerItem } from "@/components/organisms/TickerScroller";
+import { getForecast } from "@/libs/repositories/forecastRepository";
+import { getTopMovers } from "@/libs/repositories/marketRepository";
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
-  );
+export default async function Home() {
+    // 1) movers を取得（モックフォールバック込み）
+    const movers = await getTopMovers(4); // 上位4件
+
+    // 2) 上位1件を “ピックアップ” として大きめカードに
+    const featured = movers[0] ?? { ticker: "7203.T", name: "TOYOTA", changePct: 0 };
+
+    // 3) その銘柄の予測データ（モックフォールバック込み）
+    const data = await getForecast(featured.ticker);
+
+    // 4) 残りを右レールや簡易リストに
+    const others = movers.slice(1);
+
+    const indices: TickerItem[] = [
+        { symbol: "NIKKEI225", name: "日経平均", price: 40123, changePct: 0.52, size: "md" },
+        { symbol: "TOPIX", name: "TOPIX", price: 2845.12, changePct: -0.08, size: "md" },
+    ];
+
+    const moverItems: TickerItem[] = movers.map((m) => ({
+        symbol: m.ticker,
+        name: m.name ?? m.ticker,
+        price: (m as any).price ?? 0,
+        changePct: m.changePct ?? 0,
+        size: "sm",
+    }));
+
+    return (
+        <>
+            {/* ラッパー: 画面幅に収まるレスポンシブ2カラム */}
+            <div className="mx-auto max-w-screen-2xl px-4 lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-6">
+                {/* メイン領域（min-w-0で内側のはみ出し抑制） */}
+                <main className="p-6 min-w-0">
+                    <section className="max-w-5xl">
+                        <h1 className="text-2xl font-bold">ようこそ FumiKabu へ</h1>
+                        <p className="mt-2 text-[var(--color-text-3)]">
+                            直近で大きく動いた銘柄をピックアップ。予測と合わせてチェックしましょう。
+                        </p>
+
+                        <div className="mt-4">
+                            <TickerScroller
+                                indices={indices}
+                                movers={moverItems}
+                                seeAll={{ href: "/stocks", label: "株価一覧へ" }}
+                                cardHeight={88}
+                            />
+                        </div>
+
+                        {/* ピックアップ：上位1銘柄を大きめカードで */}
+                        <div className="mt-6">
+                            <StockForecastCard
+                                data={data}
+                                title={`${featured.ticker} Stock Forecast`}
+                                subtitle={`${featured.name ?? ""} / Δ ${featured.changePct > 0 ? "+" : ""}${featured.changePct}%`}
+                                tag="Today’s mover"
+                                metrics={[
+                                    { label: "Price",  value: `¥${(others[0]?.price ?? 12840).toLocaleString()}` },
+                                    { label: "Change", value: `${featured.changePct > 0 ? "+" : ""}${featured.changePct}%`, tone: featured.changePct >= 0 ? "up" : "down" },
+                                    { label: "PER",    value: "12.7x", tone: "brand" },
+                                    { label: "Sector", value: "Automobile" },
+                                ]}
+                                showLegend
+                                chartProps={{
+                                    showAxes: true,
+                                    xTickMonths: [6, 12],
+                                    yTickCount: 5,
+                                }}
+                            />
+                        </div>
+
+                        <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <a href="/stocks"  className="rounded-2xl border border-white/10 bg-[var(--color-surface-1)] px-4 py-3 hover:bg-[var(--color-surface-2)] transition">銘柄一覧へ</a>
+                            <a href="/trends"  className="rounded-2xl border border-white/10 bg-[var(--color-surface-1)] px-4 py-3 hover:bg-[var(--color-surface-2)] transition">トレンドを見る</a>
+                            <a href="/compare" className="rounded-2xl border border-white/10 bg-[var(--color-surface-1)] px-4 py-3 hover:bg-[var(--color-surface-2)] transition">銘柄を比較</a>
+                        </div>
+                    </section>
+                </main>
+
+                <RightRail>
+                    <RailCard title="Market Overview">
+                        <ul className="space-y-2 text-sm">
+                            <li className="flex justify-between"><span>Nikkei 225</span><span className="text-green-400">+0.8%</span></li>
+                            <li className="flex justify-between"><span>S&P 500</span><span className="text-red-400">-0.3%</span></li>
+                        </ul>
+                    </RailCard>
+
+                    <RailCard title="Top Movers">
+                        <ul className="space-y-2 text-sm">
+                            <li className="flex justify-between"><span>NVDA</span><span className="text-green-400">+2.1%</span></li>
+                            <li className="flex justify-between"><span>TSLA</span><span className="text-red-400">-1.2%</span></li>
+                        </ul>
+                    </RailCard>
+
+                    <RailCard title="News Digest">
+                        <ul className="space-y-2 text-sm">
+                            <li className="hover:underline cursor-pointer">BOJ hints at policy shift</li>
+                            <li className="hover:underline cursor-pointer">NVIDIA reaches new high</li>
+                        </ul>
+                    </RailCard>
+
+                    <RailCard title="Quick Tip">
+                        <p className="text-[var(--color-text-3)] text-sm">
+                            PER = 株価 ÷ 1株あたり利益（EPS）
+                        </p>
+                    </RailCard>
+                </RightRail>
+            </div>
+        </>
+    );
 }
