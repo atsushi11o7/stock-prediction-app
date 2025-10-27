@@ -1,3 +1,4 @@
+// src/components/atoms/Label/Label.stories.tsx
 import type { Meta, StoryObj } from "@storybook/react";
 import Label from "./Label";
 

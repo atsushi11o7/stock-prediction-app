@@ -1,3 +1,4 @@
+// src/components/atoms/Badge/Badge.tsx
 "use client";
 
 import React from "react";

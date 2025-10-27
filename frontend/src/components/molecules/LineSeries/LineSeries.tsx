@@ -2,144 +2,184 @@
 
 import React from "react";
 import clsx from "clsx";
-import type { Series } from "@/libs/chart/types";
 
-/**
- * 折れ線 1 本を描く（SVG 専用）
- * - series に null が含まれていると、その箇所で線を「分断」します
- * - xOf(index), yOf(value) でスケールを受け取り、座標を計算します
- * - dash（"6 6" 等）で点線化、glow で簡易発光（太めの半透明線を背面に）
- */
+export type Series = (number | null)[];
+
 export type LineSeriesProps = {
-    /** データ系列（null はギャップ） */
+    /** 値の配列。null の箇所はギャップ（線を切る） */
     series: Series;
 
-    /** index -> x(px) 座標変換 */
+    /** x 軸：index -> px */
     xOf: (i: number) => number;
-    /** value -> y(px) 座標変換 */
+    /** y 軸：value -> px */
     yOf: (v: number) => number;
 
-    /** 線の色 */
+    /** 線色（CSS color） */
     stroke?: string;
-    /** 線の太さ（px） */
+    /** 線の太さ */
     strokeWidth?: number;
-    /** 透明度（0..1） */
+    /** 透明度 */
     opacity?: number;
-    /** 丸角設定 */
-    strokeLinecap?: "butt" | "round" | "square";
-    strokeLinejoin?: "miter" | "round" | "bevel";
-    /** 点線（例: "6 6"） */
+
+    /** stroke-dasharray に渡すパターン（"6 6" など） */
     dash?: string | null;
 
-    /** グロー（背面に太い半透明の線を描画） */
+    /** 丸/角など */
+    strokeLinecap?: "butt" | "round" | "square";
+    strokeLinejoin?: "miter" | "round" | "bevel";
+
+    /** クリップ矩形（描画範囲） */
+    clip?: { x1: number; y1: number; x2: number; y2: number };
+
+    /** ふわっと光る外側グロー（疑似） */
     glow?: boolean;
-    glowOpacity?: number;   // 0..1
-    glowWidth?: number;     // px
+    glowWidth?: number;     // 例: 10
+    glowOpacity?: number;   // 例: 0.35
 
-    /** クリッピング（プロット領域） */
-    clip?: { x1: number; y1: number; x2: number; y2: number } | null;
+    /** 線を“徐々に描く”アニメを有効化 */
+    animateDraw?: boolean;
+    /** 描画にかける時間（ms） */
+    durationMs?: number;
+    /** 開始までのディレイ（ms） */
+    delayMs?: number;
+    /** 描き終わったときのコールバック（オーケストレーション用） */
+    onDrawEnd?: () => void;
 
-    /** SVG グループに付けるクラス */
     className?: string;
-
-    /** アクセシビリティ用。視覚化専用なら ariaHidden=true を推奨 */
-    ariaHidden?: boolean;
 };
+
+function buildPathD(series: Series, xOf: (i: number) => number, yOf: (v: number) => number): string {
+    let d = "";
+    let penDown = false;
+    for (let i = 0; i < series.length; i++) {
+        const v = series[i];
+        if (v == null || !Number.isFinite(v)) {
+            penDown = false;
+            continue;
+        }
+        const x = xOf(i);
+        const y = yOf(v);
+        if (!penDown) {
+            d += `M ${x} ${y}`;
+            penDown = true;
+        } else {
+            d += ` L ${x} ${y}`;
+        }
+    }
+    return d || "M 0 0";
+}
+
+let gid = 0;
 
 export default function LineSeries({
     series,
     xOf,
     yOf,
-    stroke = "#7a23d4",        // brand-600 相当（紫）
-    strokeWidth = 3,
+    stroke = "currentColor",
+    strokeWidth = 2,
     opacity = 1,
+    dash = null,
     strokeLinecap = "round",
     strokeLinejoin = "round",
-    dash = null,
+    clip,
     glow = false,
-    glowOpacity = 0.5,
-    glowWidth = Math.max(6, strokeWidth * 2),
-    clip = null,
+    glowWidth = 10,
+    glowOpacity = 0.35,
+    animateDraw = false,
+    durationMs = 1200,
+    delayMs = 0,
+    onDrawEnd,
     className,
-    ariaHidden = true,
 }: LineSeriesProps) {
-    // null で分割された「サブパス」配列を作る
-    const segs: Array<Array<{ x: number; y: number }>> = [];
-    let curr: Array<{ x: number; y: number }> = [];
+    const d = React.useMemo(() => buildPathD(series, xOf, yOf), [series, xOf, yOf]);
 
-    for (let i = 0; i < series.length; i++) {
-        const v = series[i];
-        if (v == null || !Number.isFinite(v)) {
-            if (curr.length > 1) segs.push(curr);
-            curr = [];
-            continue;
-        }
-        const x = xOf(i);
-        const y = yOf(v);
-        curr.push({ x, y });
-    }
-    if (curr.length > 1) segs.push(curr);
+    const pathRef = React.useRef<SVGPathElement | null>(null);
+    const [clipId] = React.useState(() => (clip ? `clip-${++gid}` : undefined));
+    const [glowId] = React.useState(() => (glow ? `glow-${++gid}` : undefined));
 
-    // SVG path d を生成
-    const toPath = (pts: Array<{ x: number; y: number }>) => {
-        let d = `M ${pts[0].x} ${pts[0].y}`;
-        for (let k = 1; k < pts.length; k++) {
-            d += ` L ${pts[k].x} ${pts[k].y}`;
-        }
-        return d;
-    };
+    React.useEffect(() => {
+        if (!animateDraw || !pathRef.current) return;
+        const el = pathRef.current;
+        const total = el.getTotalLength();
 
-    // クリップパス（任意）
-    const clipId = React.useId();
-    const hasClip = !!clip;
+        // 初期化
+        el.style.strokeDasharray = String(total);
+        el.style.strokeDashoffset = String(total);
+        el.style.transition = "none";
+
+        const t = setTimeout(() => {
+            el.style.transition = `stroke-dashoffset ${durationMs}ms ease`;
+            el.style.strokeDashoffset = "0";
+
+            const done = setTimeout(() => onDrawEnd?.(), durationMs);
+            return () => clearTimeout(done);
+        }, delayMs);
+
+        return () => clearTimeout(t);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [d, animateDraw, durationMs, delayMs]);
 
     return (
-        <g
-            aria-hidden={ariaHidden}
-            className={clsx("line-series-layer", className)}
-        >
-            {hasClip && clip && (
-                <clipPath id={clipId}>
-                    <rect
-                        x={clip.x1}
-                        y={clip.y1}
-                        width={Math.max(0, clip.x2 - clip.x1)}
-                        height={Math.max(0, clip.y2 - clip.y1)}
-                    />
-                </clipPath>
+        <>
+            {clip && (
+                <defs>
+                    <clipPath id={clipId}>
+                        <rect
+                            x={clip.x1}
+                            y={clip.y1}
+                            width={clip.x2 - clip.x1}
+                            height={clip.y2 - clip.y1}
+                            rx={0}
+                            ry={0}
+                        />
+                    </clipPath>
+                </defs>
             )}
 
-            {/* glow（背面） */}
-            {glow && segs.map((pts, i) => (
+            {glow && (
+                <defs>
+                    <filter id={glowId} x="-50%" y="-50%" width="200%" height="200%">
+                        <feGaussianBlur in="SourceGraphic" stdDeviation={glowWidth / 2} result="blur" />
+                        <feMerge>
+                            <feMergeNode in="blur" />
+                            <feMergeNode in="SourceGraphic" />
+                        </feMerge>
+                    </filter>
+                </defs>
+            )}
+
+            {/* グロー用の太い下地（半透明） */}
+            {glow && (
                 <path
-                    key={`glow-${i}`}
-                    d={toPath(pts)}
+                    d={d}
+                    clipPath={clipId ? `url(#${clipId})` : undefined}
+                    className={clsx(className)}
                     fill="none"
                     stroke={stroke}
                     strokeWidth={glowWidth}
-                    strokeLinecap={strokeLinecap}
-                    strokeLinejoin={strokeLinejoin}
                     strokeOpacity={glowOpacity}
-                    clipPath={hasClip ? `url(#${clipId})` : undefined}
-                    style={{ filter: "blur(0.2px)" }} // 軽いソフト化
-                />
-            ))}
-
-            {/* 本線 */}
-            {segs.map((pts, i) => (
-                <path
-                    key={`line-${i}`}
-                    d={toPath(pts)}
-                    fill="none"
-                    stroke={stroke}
-                    strokeWidth={strokeWidth}
                     strokeLinecap={strokeLinecap}
                     strokeLinejoin={strokeLinejoin}
-                    strokeOpacity={opacity}
-                    strokeDasharray={dash ?? undefined}
-                    clipPath={hasClip ? `url(#${clipId})` : undefined}
+                    vectorEffect="non-scaling-stroke"
+                    filter={glowId ? `url(#${glowId})` : undefined}
                 />
-            ))}
-        </g>
+            )}
+
+            {/* 本体線 */}
+            <path
+                ref={pathRef}
+                d={d}
+                clipPath={clipId ? `url(#${clipId})` : undefined}
+                className={clsx(className)}
+                fill="none"
+                stroke={stroke}
+                strokeWidth={strokeWidth}
+                strokeOpacity={opacity}
+                strokeLinecap={strokeLinecap}
+                strokeLinejoin={strokeLinejoin}
+                vectorEffect="non-scaling-stroke"
+                strokeDasharray={dash ?? undefined}
+            />
+        </>
     );
 }
