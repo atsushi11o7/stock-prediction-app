@@ -23,14 +23,13 @@ export default function TickerScroller({
     className,
 }: TickerScrollerProps) {
     const h = typeof cardHeight === "number" ? `${cardHeight}px` : cardHeight;
+    type CSSVars = React.CSSProperties & { ["--scroll-card-h"]?: string };
+    const styleVars: CSSVars = { ["--scroll-card-h"]: h };
 
     return (
         <section className={clsx("w-full", className)}>
             <div className={clsx("scroll-x", "overscroll-x-contain")}>
-                <div
-                    className="flex items-stretch gap-3 pr-2"
-                    style={{ ["--scroll-card-h" as any]: h }}
-                >
+                <div className="flex items-stretch gap-3 pr-2" style={styleVars}>
                     {indices.map((it) => (
                         <TickerCard key={it.symbol} {...it} size="md" />
                     ))}

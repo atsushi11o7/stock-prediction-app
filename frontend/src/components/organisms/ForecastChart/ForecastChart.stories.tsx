@@ -1,4 +1,4 @@
-import type { Meta, StoryObj } from "@storybook/react";
+import type { Meta, StoryObj } from "@storybook/nextjs";
 import ForecastChart from "./ForecastChart";
 import type { StockForecastData } from "@/libs/chart/types";
 
