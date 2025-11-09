@@ -1,0 +1,13 @@
+{
+  "name": "Backend Dev Container",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": "../.."
+  },
+  "workspaceFolder": "/workspace",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind",
+  "forwardPorts": [3000],
+  "remoteUser": "rails",
+  "updateRemoteUserUID": true,
+  "postCreateCommand": "bash -lc 'gem install bundler -N && gem install rails -N -v \"~> 7.2\"'"
+}
