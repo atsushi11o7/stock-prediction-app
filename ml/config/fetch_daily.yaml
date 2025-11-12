@@ -1,0 +1,36 @@
+defaults:
+  - _self_
+  - topix_core_30: 20251031  # 抽出対象のTOPIXCore30のデータ
+
+# 取得対象日（"auto" の場合は最新の取引日を自動判定）
+as_of: "auto"  # ex. "2025-11-12" / "auto"
+
+# yfinance パラメータ
+yf:
+  interval: "1d"   # 日次
+  period: "3d"     # 直近数日から取得して as_of に最も近い行を選ぶ
+  use_adjclose: true
+
+fields:
+  - "open"
+  - "high"
+  - "low"
+  - "close"
+  - "adjclose"
+  - "volume"
+
+output:
+  local:
+    enable: true
+    dir: "/workspace/ml/data/serving/daily"
+  s3:
+    enable: false
+    bucket: "stock-forecast-prod-apne1"
+    daily_prefix: "market_data/serving/daily"   # daily/2025-11-12.json
+
+retry:
+  times: 3
+  sleep_seconds: 1.0
+
+logging:
+  level: "INFO"

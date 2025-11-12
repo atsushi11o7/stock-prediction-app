@@ -40,5 +40,8 @@ RUN /opt/venv/bin/python -m ipykernel install --name ml-dev --display-name "Pyth
 # 起動時に仮想環境を有効化
 RUN echo "source /opt/venv/bin/activate" >> /root/.bashrc
 
+# プロジェクトのルートディレクトリをパスに追加
+ENV PYTHONPATH="/workspace/ml"
+
 # コンテナ起動時のデフォルトコマンド
 CMD ["bash"]

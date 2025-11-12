@@ -1,4 +1,4 @@
-# python/model_src/lit_modules/lit_model.py
+# src/model_src/lit_modules/lit_model.py
 
 import sys
 from pathlib import Path
@@ -6,10 +6,10 @@ import torch
 import torch.nn.functional as F
 import pytorch_lightning as pl
 
-repo_dir = Path(__file__).absolute().parents[3]
-sys.path.append(repo_dir.as_posix())
+# repo_dir = Path(__file__).absolute().parents[3]
+# sys.path.append(repo_dir.as_posix())
 
-from model_src.models.lstm_model import StockLSTM
+from src.model_src.models.lstm_model import StockLSTM
 
 class LitStockModel(pl.LightningModule):
     """

@@ -1,4 +1,4 @@
-# python/model_src/models/lstm_model.py
+# src/model_src/models/lstm_model.py
 
 import torch
 import torch.nn as nn
