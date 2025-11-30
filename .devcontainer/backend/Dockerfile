@@ -7,7 +7,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
     LANG=C.UTF-8 \
     LC_ALL=C.UTF-8
 
-# Railsで必要な基本ツール＋pg用ヘッダ（後でPostgres使う想定でもOK）
+# Railsで必要な基本ツール＋pg用ヘッダ
 RUN apt-get update && apt-get install -y --no-install-recommends \
     bash \
     git \
@@ -19,6 +19,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     pkg-config \
     libpq-dev \
     nodejs \
+    postgresql-client \
  && rm -rf /var/lib/apt/lists/*
 
 RUN useradd -m -s /bin/bash rails && mkdir -p /workspace && chown -R rails:rails /workspace
