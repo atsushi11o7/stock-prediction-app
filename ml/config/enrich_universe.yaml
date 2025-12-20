@@ -1,0 +1,6 @@
+# 静的特徴量付与設定
+# パスはml/ディレクトリからの相対パス
+
+input_path: "config/universes/topix_core_30_20251031.yaml"
+output_path: "config/universes/enrich_topix_core_30_20251031.yaml"
+update_mode: "full"  # "full" または "valuation-only"

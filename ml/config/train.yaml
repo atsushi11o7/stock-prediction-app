@@ -1,0 +1,101 @@
+# config/train.yaml
+# 学習設定
+#
+# 使用例:
+#   python src/training/train.py --config config/train.yaml
+
+defaults:
+  - _self_
+  - universes: "enrich_topix_core_30_20251031"
+
+# 環境設定: "local" または "s3"
+env: "local"
+
+# データ設定
+data:
+  batch_size: 32
+  num_workers: 4
+  train_ratio: 0.7
+  val_ratio: 0.15
+  test_ratio: 0.15
+  export_features_csv: false
+  features_csv_dir: "data/features"
+
+# モデル設定
+model:
+  model_type: "lstm"
+  lstm_hidden_size: 128
+  lstm_num_layers: 2
+  lstm_dropout: 0.2
+  use_bidirectional: true
+  sector_embedding_dim: 8
+  mlp_hidden_sizes: [256, 128, 64]
+  mlp_dropout: 0.3
+  use_batch_norm: true
+  attention_dim: 64
+
+# 最適化設定
+optimizer:
+  learning_rate: 0.001
+  weight_decay: 0.00001
+  use_scheduler: true
+  scheduler_type: "reduce_on_plateau"
+  scheduler_patience: 10
+  scheduler_factor: 0.5
+
+# 学習設定
+training:
+  max_epochs: 100
+  accelerator: "auto"
+  devices: 1
+  precision: 32
+  gradient_clip_val: 1.0
+  accumulate_grad_batches: 1
+  early_stopping_patience: 15
+  early_stopping_min_delta: 0.0001
+
+# ローカル環境設定
+local:
+  input:
+    daily_data_dir: "data/training/daily"
+  output:
+    checkpoint_dir: "checkpoints"
+    onnx_dir: "models/onnx"
+    logs_dir: "logs"
+
+# S3環境設定
+s3:
+  bucket: "stock-forecast-prod-apne1"
+  input:
+    daily_data_prefix: "market_data/training/daily"
+  output:
+    checkpoint_prefix: "models/checkpoints"
+    onnx_prefix: "models/onnx"
+    logs_prefix: "logs"
+
+# ONNX エクスポート設定
+onnx:
+  export: true
+  opset_version: 14
+  dynamic_axes:
+    weekly_seq:
+      0: "batch_size"
+    static_features:
+      0: "batch_size"
+    position_features:
+      0: "batch_size"
+    sector_id:
+      0: "batch_size"
+    output:
+      0: "batch_size"
+
+# ロギング設定
+logging:
+  level: "INFO"
+  use_tensorboard: true
+  use_csv_logger: true
+  log_model: true
+
+# 再現性
+seed: 42
+deterministic: true

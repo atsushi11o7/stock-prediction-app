@@ -1,0 +1,35 @@
+# config/predict.yaml
+# 推論設定
+#
+# 使用例:
+#   python src/inference/predict.py --config config/predict.yaml
+
+defaults:
+  - _self_
+  - universes: "enrich_topix_core_30_20251031"
+
+# モデル設定
+model:
+  onnx_path: "models/onnx/best_model.onnx"
+
+# 環境設定: "local" または "s3"
+env: "local"
+
+# ローカル環境設定
+local:
+  input:
+    daily_data_dir: "data/training/daily"
+  output:
+    dir: "predictions"
+
+# S3環境設定 (Lambda用)
+s3:
+  bucket: "stock-forecast-prod-apne1"
+  input:
+    daily_data_prefix: "daily"
+  output:
+    predictions_prefix: "predictions"
+
+# ログ設定
+logging:
+  level: "INFO"

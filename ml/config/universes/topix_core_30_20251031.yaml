@@ -1,8 +1,8 @@
-# config/topix_core_30/20251031.yaml
+# config/universes/topix_core_30_20251031.yaml
 # 更新日: 2025-10-31
 # 出典: JPX TOPIX Core30 構成銘柄一覧
 
-core30:
+universe:
   - { code: 2914, name: 日本たばこ産業, ticker: "2914.T" }
   - { code: 3382, name: セブン&アイ・ホールディングス, ticker: "3382.T" }
   - { code: 4063, name: 信越化学工業, ticker: "4063.T" }
