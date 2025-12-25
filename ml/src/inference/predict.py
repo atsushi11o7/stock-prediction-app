@@ -11,9 +11,11 @@ import os
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Any
+from dataclasses import dataclass
+from typing import Dict, Optional, Any
 import argparse
 
+import boto3
 import numpy as np
 import onnxruntime as ort
 import pandas as pd
@@ -28,7 +30,7 @@ from data.utils.config import (
     resolve_universe_yaml_path_with_s3,
     get_base_dir,
 )
-from data.utils.io import load_daily_data_for_ticker
+from data.utils.io import load_daily_data_from_s3, load_daily_data_from_local
 from features.weekly_features import create_weekly_bars
 from features.position_features import calc_position_features
 
@@ -86,14 +88,17 @@ def calc_static_features_for_ticker(
 def predict_ticker(
     ticker: str,
     ticker_info: Dict[str, Any],
-    daily_data_path: str,
+    all_daily_data: pd.DataFrame,
     sector_mapping: Dict[str, int],
     ort_session: ort.InferenceSession,
     as_of_date: Optional[pd.Timestamp] = None,
 ) -> Dict[str, Any]:
     """Generate prediction for a single ticker"""
-    # Load daily data (supports both local path and S3 URI)
-    df_daily = load_daily_data_for_ticker(daily_data_path, ticker)
+    # Filter daily data for this ticker (data already loaded in memory)
+    df_daily = all_daily_data[all_daily_data["Ticker"] == ticker].copy()
+
+    if df_daily.empty:
+        raise ValueError(f"No data found for ticker: {ticker}")
 
     if as_of_date is None:
         as_of_date = df_daily["Date"].max()
@@ -186,6 +191,172 @@ def load_config(config_path: Path) -> Dict[str, Any]:
     return config
 
 
+@dataclass
+class InferenceConfig:
+    """推論に必要な設定をまとめたデータクラス"""
+    env: str
+    universe_yaml_path: str
+    daily_data_path: str
+    onnx_model_path: Path
+    metadata_path: Optional[Path]
+    output_dir: Path
+    s3_bucket: Optional[str]
+    predictions_prefix: Optional[str]
+
+    @property
+    def is_s3_env(self) -> bool:
+        return self.env == "s3"
+
+
+def resolve_inference_config(config: Dict[str, Any], config_path: Path) -> InferenceConfig:
+    """設定ファイルから推論設定を解決する"""
+    project_root = get_base_dir(config_path)
+    universe_yaml_path = config.get("_universe_yaml_path")
+    if not universe_yaml_path:
+        raise ValueError("universes not specified in config defaults")
+
+    env = config.get("env", "local")
+
+    if env == "s3":
+        s3_cfg = config.get("s3", {})
+        s3_bucket = s3_cfg.get("bucket", "stock-forecast-prod-apne1")
+        s3_input_cfg = s3_cfg.get("input", {})
+        s3_output_cfg = s3_cfg.get("output", {})
+
+        daily_data_prefix = s3_input_cfg.get("daily_data_prefix", "daily")
+        daily_data_path = f"s3://{s3_bucket}/{daily_data_prefix}"
+        predictions_prefix = s3_output_cfg.get("predictions_prefix", "predictions")
+        output_dir = Path("/tmp/predictions")
+
+        # ONNXモデルをS3からダウンロード
+        onnx_key = s3_input_cfg.get("onnx_key", "models/onnx/best_model.onnx")
+        onnx_model_path = Path("/tmp") / "best_model.onnx"
+        s3_client = boto3.client('s3')
+        logger.info(f"Downloading ONNX model from s3://{s3_bucket}/{onnx_key}...")
+        s3_client.download_file(s3_bucket, onnx_key, str(onnx_model_path))
+
+        # メタデータもダウンロード（存在する場合）
+        metadata_key = onnx_key.replace(".onnx", ".json")
+        metadata_path = Path("/tmp") / "best_model.json"
+        try:
+            s3_client.download_file(s3_bucket, metadata_key, str(metadata_path))
+        except Exception:
+            metadata_path = None
+    else:
+        local_cfg = config.get("local", {})
+        local_input_cfg = local_cfg.get("input", {})
+        local_output_cfg = local_cfg.get("output", {})
+
+        daily_data_dir = local_input_cfg.get("daily_data_dir", "data/training/daily")
+        daily_data_path = str(project_root / daily_data_dir)
+        output_dir = project_root / local_output_cfg.get("dir", "predictions")
+        s3_bucket = None
+        predictions_prefix = None
+
+        model_cfg = config.get("model", {})
+        onnx_model_path = project_root / model_cfg.get("onnx_path", "models/onnx/best_model.onnx")
+        metadata_path = onnx_model_path.with_suffix(".json")
+
+    return InferenceConfig(
+        env=env,
+        universe_yaml_path=universe_yaml_path,
+        daily_data_path=daily_data_path,
+        onnx_model_path=onnx_model_path,
+        metadata_path=metadata_path,
+        output_dir=output_dir,
+        s3_bucket=s3_bucket,
+        predictions_prefix=predictions_prefix,
+    )
+
+
+def load_all_daily_data(cfg: InferenceConfig) -> pd.DataFrame:
+    """日次データを一括で読み込む"""
+    logger.info("Loading daily data...")
+    if cfg.is_s3_env:
+        s3_parts = cfg.daily_data_path[5:].split("/", 1)
+        s3_data_bucket = s3_parts[0]
+        s3_data_prefix = s3_parts[1] if len(s3_parts) > 1 else ""
+        all_daily_data = load_daily_data_from_s3(
+            bucket=s3_data_bucket,
+            prefix=s3_data_prefix,
+        )
+    else:
+        all_daily_data = load_daily_data_from_local(
+            daily_data_dir=Path(cfg.daily_data_path),
+        )
+    logger.info(f"Loaded {len(all_daily_data)} daily records for {all_daily_data['Ticker'].nunique()} tickers")
+    return all_daily_data
+
+
+def load_sector_mapping_from_metadata(metadata_path: Optional[Path]) -> Dict[str, int]:
+    """セクターマッピングを読み込む"""
+    if metadata_path and metadata_path.exists():
+        logger.info("Loading sector mapping from model metadata...")
+        with open(metadata_path, "r", encoding="utf-8") as f:
+            metadata = json.load(f)
+        sector_mapping = metadata.get("sector_mapping", {})
+        if not sector_mapping:
+            logger.info("Model metadata has no sector_mapping, using sectors.yaml...")
+            sector_mapping = load_sector_mapping()
+    else:
+        logger.info("Loading sector mapping from sectors.yaml...")
+        sector_mapping = load_sector_mapping()
+    logger.info(f"Loaded sector mapping: {len(sector_mapping)} sectors")
+    return sector_mapping
+
+
+def save_predictions(
+    output_data: Dict[str, Any],
+    cfg: InferenceConfig,
+    as_of_date: str,
+) -> None:
+    """予測結果を保存する"""
+    cfg.output_dir.mkdir(parents=True, exist_ok=True)
+
+    # 1. 日付ファイル（履歴用）
+    date_output_path = cfg.output_dir / f"{as_of_date}.json"
+    with open(date_output_path, "w", encoding="utf-8") as f:
+        json.dump(output_data, f, indent=2, ensure_ascii=False)
+    logger.info(f"Saved predictions to: {date_output_path}")
+
+    # 2. latest.json（最新データ参照用）
+    latest_output_path = cfg.output_dir / "latest.json"
+    with open(latest_output_path, "w", encoding="utf-8") as f:
+        json.dump(output_data, f, indent=2, ensure_ascii=False)
+    logger.info(f"Updated latest: {latest_output_path}")
+
+    # Upload to S3 if S3 environment
+    if cfg.is_s3_env:
+        try:
+            s3_client = boto3.client('s3')
+            logger.info("Uploading to S3...")
+
+            s3_key_date = f"{cfg.predictions_prefix}/{as_of_date}.json"
+            s3_client.upload_file(str(date_output_path), cfg.s3_bucket, s3_key_date)
+            logger.info(f"  Uploaded to s3://{cfg.s3_bucket}/{s3_key_date}")
+
+            s3_key_latest = f"{cfg.predictions_prefix}/latest.json"
+            s3_client.upload_file(str(latest_output_path), cfg.s3_bucket, s3_key_latest)
+            logger.info(f"  Uploaded to s3://{cfg.s3_bucket}/{s3_key_latest}")
+        except Exception as e:
+            logger.error(f"Error uploading to S3: {e}")
+
+
+def log_summary(predictions: list, errors: list) -> None:
+    """推論結果のサマリーをログ出力"""
+    logger.info("=" * 60)
+    logger.info("Inference Complete")
+    logger.info("=" * 60)
+    logger.info(f"Successful predictions: {len(predictions)}")
+    logger.info(f"Errors: {len(errors)}")
+    if predictions:
+        returns = [p["predicted_12m_return"] for p in predictions]
+        logger.info(f"Average predicted return: {np.mean(returns):+.2%}")
+        logger.info(f"Min predicted return: {np.min(returns):+.2%}")
+        logger.info(f"Max predicted return: {np.max(returns):+.2%}")
+    logger.info("=" * 60)
+
+
 def main():
     """Main inference function"""
     parser = argparse.ArgumentParser(
@@ -217,106 +388,35 @@ def main():
     if not config_path.exists():
         raise FileNotFoundError(f"Config file not found: {config_path}")
 
-    # Load config
+    # Load and resolve config
     config = load_config(config_path)
+    cfg = resolve_inference_config(config, config_path)
 
-    # プロジェクトルートを基準にパスを解決
-    project_root = get_base_dir(config_path)
-
-    # Universe YAML
-    universe_yaml_path = config.get("_universe_yaml_path")
-    if not universe_yaml_path:
-        raise ValueError("universes not specified in config defaults")
-
-    # 環境設定 (local or s3)
-    env = config.get("env", "local")
-    is_s3_env = env == "s3"
-
-    if is_s3_env:
-        # S3環境
-        s3_cfg = config.get("s3", {})
-        s3_bucket = s3_cfg.get("bucket", "stock-forecast-prod-apne1")
-        s3_input_cfg = s3_cfg.get("input", {})
-        s3_output_cfg = s3_cfg.get("output", {})
-
-        daily_data_prefix = s3_input_cfg.get("daily_data_prefix", "daily")
-        daily_data_path = f"s3://{s3_bucket}/{daily_data_prefix}"
-
-        predictions_prefix = s3_output_cfg.get("predictions_prefix", "predictions")
-        # S3環境でもローカルに一時保存してからアップロード
-        output_dir = Path("/tmp/predictions")
-
-        # ONNXモデルをS3からダウンロード
-        onnx_key = s3_input_cfg.get("onnx_key", "models/onnx/best_model.onnx")
-        onnx_model_path = Path("/tmp") / "best_model.onnx"
-        import boto3
-        s3_client = boto3.client('s3')
-        logger.info(f"Downloading ONNX model from s3://{s3_bucket}/{onnx_key}...")
-        s3_client.download_file(s3_bucket, onnx_key, str(onnx_model_path))
-
-        # メタデータもダウンロード（存在する場合）
-        metadata_key = onnx_key.replace(".onnx", ".json")
-        metadata_path = Path("/tmp") / "best_model.json"
-        try:
-            s3_client.download_file(s3_bucket, metadata_key, str(metadata_path))
-        except Exception:
-            metadata_path = None  # メタデータがない場合
-    else:
-        # ローカル環境
-        local_cfg = config.get("local", {})
-        local_input_cfg = local_cfg.get("input", {})
-        local_output_cfg = local_cfg.get("output", {})
-
-        daily_data_dir = local_input_cfg.get("daily_data_dir", "data/training/daily")
-        daily_data_path = str(project_root / daily_data_dir)
-
-        output_dir = project_root / local_output_cfg.get("dir", "predictions")
-        s3_bucket = None
-        predictions_prefix = None
-
-        # モデル設定
-        model_cfg = config.get("model", {})
-        onnx_model_path = project_root / model_cfg.get("onnx_path", "models/onnx/best_model.onnx")
-        metadata_path = onnx_model_path.with_suffix(".json")
-
+    # Log configuration
     logger.info("=" * 60)
     logger.info("Daily Stock Prediction Inference")
     logger.info("=" * 60)
-    logger.info(f"Environment: {env}")
-    logger.info(f"Universe YAML: {universe_yaml_path}")
-    logger.info(f"Daily data path: {daily_data_path}")
-    logger.info(f"ONNX model: {onnx_model_path}")
-    logger.info(f"Output dir: {output_dir}")
-    if is_s3_env:
-        logger.info(f"S3 bucket: {s3_bucket}")
+    logger.info(f"Environment: {cfg.env}")
+    logger.info(f"Universe YAML: {cfg.universe_yaml_path}")
+    logger.info(f"Daily data path: {cfg.daily_data_path}")
+    logger.info(f"ONNX model: {cfg.onnx_model_path}")
+    logger.info(f"Output dir: {cfg.output_dir}")
+    if cfg.is_s3_env:
+        logger.info(f"S3 bucket: {cfg.s3_bucket}")
     logger.info("=" * 60)
 
-    # Load universe using unified loader
+    # Load resources
     logger.info("Loading universe YAML...")
-    universe_data = load_universe_data(universe_yaml_path)
+    universe_data = load_universe_data(cfg.universe_yaml_path)
     tickers = universe_data["tickers"]
     logger.info(f"Found {len(tickers)} tickers")
 
-    # Load ONNX model
     logger.info("Loading ONNX model...")
-    ort_session = ort.InferenceSession(str(onnx_model_path))
-    logger.info(f"Model loaded: {onnx_model_path.name}")
+    ort_session = ort.InferenceSession(str(cfg.onnx_model_path))
+    logger.info(f"Model loaded: {cfg.onnx_model_path.name}")
 
-    # Load sector mapping
-    # 1. モデルメタデータがある場合はそれを使用（既存モデルとの互換性）
-    # 2. ない場合は sectors.yaml を使用
-    if metadata_path and metadata_path.exists():
-        logger.info("Loading sector mapping from model metadata...")
-        with open(metadata_path, "r", encoding="utf-8") as f:
-            metadata = json.load(f)
-        sector_mapping = metadata.get("sector_mapping", {})
-        if not sector_mapping:
-            logger.info("Model metadata has no sector_mapping, using sectors.yaml...")
-            sector_mapping = load_sector_mapping()
-    else:
-        logger.info("Loading sector mapping from sectors.yaml...")
-        sector_mapping = load_sector_mapping()
-    logger.info(f"Loaded sector mapping: {len(sector_mapping)} sectors")
+    sector_mapping = load_sector_mapping_from_metadata(cfg.metadata_path)
+    all_daily_data = load_all_daily_data(cfg)
 
     # Run predictions
     logger.info("Running predictions...")
@@ -329,7 +429,7 @@ def main():
             pred = predict_ticker(
                 ticker=ticker,
                 ticker_info=ticker_data,
-                daily_data_path=daily_data_path,
+                all_daily_data=all_daily_data,
                 sector_mapping=sector_mapping,
                 ort_session=ort_session,
             )
@@ -340,72 +440,26 @@ def main():
             errors.append(error_msg)
             logger.error(f"[{i+1}/{len(tickers)}] {error_msg}")
 
-    # 推論で使用したデータの日付を取得（最初の予測の as_of_date を使用）
+    # Determine as_of_date
     if predictions:
         as_of_date = predictions[0]["as_of_date"]
     else:
         as_of_date = datetime.now().strftime("%Y-%m-%d")
 
-    # Create output
+    # Create and save output
     output_data = {
         "as_of": as_of_date,
         "timestamp": datetime.now().isoformat(),
-        "model_path": str(onnx_model_path),
-        "universe_path": str(universe_yaml_path),
+        "model_path": str(cfg.onnx_model_path),
+        "universe_path": str(cfg.universe_yaml_path),
         "num_predictions": len(predictions),
         "num_errors": len(errors),
         "predictions": predictions,
         "errors": errors,
     }
 
-    # Save locally: 日付ファイルとlatest.jsonの両方
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    # 1. 日付ファイル（履歴用）
-    date_output_path = output_dir / f"{as_of_date}.json"
-    with open(date_output_path, "w", encoding="utf-8") as f:
-        json.dump(output_data, f, indent=2, ensure_ascii=False)
-    logger.info(f"Saved predictions to: {date_output_path}")
-
-    # 2. latest.json（最新データ参照用）
-    latest_output_path = output_dir / "latest.json"
-    with open(latest_output_path, "w", encoding="utf-8") as f:
-        json.dump(output_data, f, indent=2, ensure_ascii=False)
-    logger.info(f"Updated latest: {latest_output_path}")
-
-    # Upload to S3 if S3 environment
-    if is_s3_env:
-        try:
-            import boto3
-            s3_client = boto3.client('s3')
-
-            logger.info("Uploading to S3...")
-
-            # 日付ファイル
-            s3_key_date = f"{predictions_prefix}/{as_of_date}.json"
-            s3_client.upload_file(str(date_output_path), s3_bucket, s3_key_date)
-            logger.info(f"  Uploaded to s3://{s3_bucket}/{s3_key_date}")
-
-            # latest.json
-            s3_key_latest = f"{predictions_prefix}/latest.json"
-            s3_client.upload_file(str(latest_output_path), s3_bucket, s3_key_latest)
-            logger.info(f"  Uploaded to s3://{s3_bucket}/{s3_key_latest}")
-
-        except Exception as e:
-            logger.error(f"Error uploading to S3: {e}")
-
-    # Summary
-    logger.info("=" * 60)
-    logger.info("Inference Complete")
-    logger.info("=" * 60)
-    logger.info(f"Successful predictions: {len(predictions)}")
-    logger.info(f"Errors: {len(errors)}")
-    if predictions:
-        returns = [p["predicted_12m_return"] for p in predictions]
-        logger.info(f"Average predicted return: {np.mean(returns):+.2%}")
-        logger.info(f"Min predicted return: {np.min(returns):+.2%}")
-        logger.info(f"Max predicted return: {np.max(returns):+.2%}")
-    logger.info("=" * 60)
+    save_predictions(output_data, cfg, as_of_date)
+    log_summary(predictions, errors)
 
 
 if __name__ == "__main__":

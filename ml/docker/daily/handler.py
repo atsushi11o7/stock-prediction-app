@@ -3,54 +3,71 @@ Lambda handler for daily inference pipeline
 """
 
 import json
-import subprocess
 import sys
+import traceback
+from pathlib import Path
+
+# Add src to path
+sys.path.insert(0, "/var/task/src")
 
 
 def lambda_handler(event, context):
     """
     Daily pipeline Lambda handler
 
-    Runs: fetch_daily_universe.py + predict.py
+    Runs: fetch_daily_universe + predict
     """
-    try:
-        # Run daily pipeline
-        result = subprocess.run(
-            [
-                sys.executable,
-                "src/pipeline/daily_pipeline.py",
-                "--fetch-config", "config/fetch_daily_universe.yaml",
-                "--predict-config", "config/predict.yaml",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=540,  # 9 minutes (Lambda max is 15 min)
-        )
+    print("Lambda handler started", flush=True)
 
-        if result.returncode != 0:
+    try:
+        # Import pipeline functions
+        from pipeline.daily_pipeline import run_daily_data_fetch, run_daily_inference
+
+        fetch_config = Path("config/fetch_daily_universe.yaml")
+        predict_config = Path("config/predict.yaml")
+
+        print(f"Fetch config: {fetch_config}", flush=True)
+        print(f"Predict config: {predict_config}", flush=True)
+
+        # Step 1: Fetch daily data
+        print("Step 1: Fetching daily data...", flush=True)
+        fetch_success = run_daily_data_fetch(fetch_config)
+
+        if not fetch_success:
             return {
                 "statusCode": 500,
-                "body": json.dumps({
-                    "error": "Pipeline failed",
-                    "stderr": result.stderr[-1000:] if result.stderr else None,
-                }),
+                "body": json.dumps({"error": "Data fetch failed"}),
             }
+
+        print("Step 1 completed successfully", flush=True)
+
+        # Step 2: Run inference
+        print("Step 2: Running inference...", flush=True)
+        inference_success = run_daily_inference(predict_config)
+
+        if not inference_success:
+            return {
+                "statusCode": 500,
+                "body": json.dumps({"error": "Inference failed"}),
+            }
+
+        print("Step 2 completed successfully", flush=True)
+        print("Daily pipeline completed!", flush=True)
 
         return {
             "statusCode": 200,
-            "body": json.dumps({
-                "message": "Daily pipeline completed successfully",
-                "stdout": result.stdout[-1000:] if result.stdout else None,
-            }),
+            "body": json.dumps({"message": "Daily pipeline completed successfully"}),
         }
 
-    except subprocess.TimeoutExpired:
-        return {
-            "statusCode": 504,
-            "body": json.dumps({"error": "Pipeline timeout"}),
-        }
     except Exception as e:
+        error_msg = f"{type(e).__name__}: {str(e)}"
+        tb = traceback.format_exc()
+        print(f"Error: {error_msg}", flush=True)
+        print(f"Traceback:\n{tb}", flush=True)
         return {
             "statusCode": 500,
-            "body": json.dumps({"error": str(e)}),
+            "body": json.dumps({
+                "error": error_msg,
+                "traceback": tb[-2000:] if tb else None,
+            }),
         }

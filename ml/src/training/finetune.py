@@ -13,10 +13,12 @@ CPU専用、軽量実装
 
 import argparse
 import json
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
+import boto3
 import numpy as np
 import torch
 import torch.nn as nn
@@ -50,6 +52,162 @@ from training.utils.onnx_export import export_pytorch_model_to_onnx
 logger = setup_logger(__name__)
 
 
+@dataclass
+class FinetuneConfig:
+    """ファインチューニングに必要な設定をまとめたデータクラス"""
+    env: str
+    bucket: Optional[str]
+    universe_yaml_path: str
+    checkpoint_path: Optional[Path]
+    checkpoint_key: Optional[str]
+    daily_data_dir: Optional[Path]
+    daily_data_prefix: Optional[str]
+    output_dir: Path
+    onnx_prefix: Optional[str]
+    checkpoint_output_dir: Optional[Path]
+    recent_months: int
+    num_epochs: int
+    learning_rate: float
+    batch_size: int
+
+    @property
+    def is_s3_env(self) -> bool:
+        return self.env == "s3"
+
+
+def resolve_finetune_config(cfg: Dict[str, Any], config_path: Path) -> FinetuneConfig:
+    """設定ファイルからファインチューニング設定を解決する"""
+    from data.utils.config import get_base_dir, get_env_config, resolve_path
+
+    base_dir = get_base_dir(config_path)
+    env, env_cfg, input_cfg, output_cfg = get_env_config(cfg)
+
+    # ファインチューニング設定
+    ft_cfg = cfg.get("finetuning", {})
+    recent_months = ft_cfg.get("recent_months", 1)
+    num_epochs = ft_cfg.get("num_epochs", 5)
+    learning_rate = ft_cfg.get("learning_rate", 0.0001)
+    batch_size = ft_cfg.get("batch_size", 32)
+
+    # Universe YAML パスを解決
+    universe_yaml_path = resolve_universe_yaml_path_with_s3(cfg, config_path)
+
+    if env == "s3":
+        bucket = cfg["s3"]["bucket"]
+        checkpoint_key = input_cfg.get("checkpoint_key", "checkpoints/best_model.ckpt")
+        checkpoint_path = None
+        daily_data_dir = None
+        daily_data_prefix = input_cfg.get("daily_data_prefix", "daily")
+        output_dir = Path("/tmp/onnx")
+        onnx_prefix = output_cfg.get("onnx_prefix", "models/onnx")
+        checkpoint_output_dir = None
+    else:
+        bucket = None
+        checkpoint_key = None
+        checkpoint_path = resolve_path(
+            input_cfg.get("checkpoint_path", "checkpoints/best_model.ckpt"), base_dir
+        )
+        daily_data_dir = resolve_path(
+            input_cfg.get("daily_data_dir", "data/training/daily"), base_dir
+        )
+        daily_data_prefix = None
+        output_dir = resolve_path(output_cfg.get("onnx_dir", "models/onnx"), base_dir)
+        onnx_prefix = None
+        checkpoint_output_dir = resolve_path(
+            output_cfg.get("checkpoint_dir", "checkpoints"), base_dir
+        )
+
+    return FinetuneConfig(
+        env=env,
+        bucket=bucket,
+        universe_yaml_path=universe_yaml_path,
+        checkpoint_path=checkpoint_path,
+        checkpoint_key=checkpoint_key,
+        daily_data_dir=daily_data_dir,
+        daily_data_prefix=daily_data_prefix,
+        output_dir=output_dir,
+        onnx_prefix=onnx_prefix,
+        checkpoint_output_dir=checkpoint_output_dir,
+        recent_months=recent_months,
+        num_epochs=num_epochs,
+        learning_rate=learning_rate,
+        batch_size=batch_size,
+    )
+
+
+def load_checkpoint(cfg: FinetuneConfig) -> Dict[str, Any]:
+    """環境に応じてチェックポイントを読み込む"""
+    logger.info("\n[INFO] Loading checkpoint...")
+
+    if cfg.is_s3_env:
+        local_checkpoint_path = Path("/tmp/checkpoint.ckpt")
+        checkpoint = load_checkpoint_from_s3(cfg.bucket, cfg.checkpoint_key, local_checkpoint_path)
+    else:
+        checkpoint = load_checkpoint_from_local(cfg.checkpoint_path)
+
+    logger.info("  Checkpoint loaded successfully")
+    return checkpoint
+
+
+def save_results(
+    onnx_path: Path,
+    metadata_path: Path,
+    finetuned_model: nn.Module,
+    hparams: Dict[str, Any],
+    timestamp: str,
+    cfg: FinetuneConfig,
+) -> None:
+    """ファインチューニング結果を保存する"""
+    # S3 アップロード
+    if cfg.is_s3_env:
+        try:
+            s3_client = boto3.client('s3')
+            logger.info(f"\n[INFO] Uploading to S3...")
+
+            # ONNX モデル
+            s3_key_onnx = f"{cfg.onnx_prefix}/{onnx_path.name}"
+            s3_client.upload_file(str(onnx_path), cfg.bucket, s3_key_onnx)
+            logger.info(f"  Uploaded to s3://{cfg.bucket}/{s3_key_onnx}")
+
+            # メタデータ
+            s3_key_meta = f"{cfg.onnx_prefix}/{metadata_path.name}"
+            s3_client.upload_file(str(metadata_path), cfg.bucket, s3_key_meta)
+            logger.info(f"  Uploaded to s3://{cfg.bucket}/{s3_key_meta}")
+
+        except Exception as e:
+            logger.error(f"  ERROR uploading to S3: {e}")
+    else:
+        # ローカルにチェックポイントを保存
+        cfg.checkpoint_output_dir.mkdir(parents=True, exist_ok=True)
+        best_ckpt_path = cfg.checkpoint_output_dir / "best_model.ckpt"
+
+        torch.save({
+            'state_dict': {'model.' + k: v for k, v in finetuned_model.state_dict().items()},
+            'hyper_parameters': hparams,
+            'finetuned_at': timestamp,
+        }, best_ckpt_path)
+
+        logger.info(f"  Checkpoint saved: {best_ckpt_path}")
+
+
+def log_summary(
+    onnx_path: Path,
+    metadata_path: Path,
+    num_samples: int,
+    recent_months: int,
+) -> None:
+    """ファインチューニング結果のサマリーをログ出力"""
+    logger.info("\n" + "=" * 60)
+    logger.info("Finetuning Complete")
+    logger.info("=" * 60)
+    logger.info(f"ONNX model: {onnx_path}")
+    logger.info(f"Metadata: {metadata_path}")
+    logger.info(f"Finetuning samples: {num_samples}")
+    logger.info(f"  Recent {recent_months} month(s): ~{num_samples * 2 // 3}")
+    logger.info(f"  Historical: ~{num_samples // 3}")
+    logger.info("=" * 60)
+
+
 def load_checkpoint_from_local(checkpoint_path: Path) -> Dict[str, Any]:
     """Load PyTorch checkpoint from local file"""
     checkpoint = torch.load(checkpoint_path, map_location=torch.device('cpu'))
@@ -58,8 +216,6 @@ def load_checkpoint_from_local(checkpoint_path: Path) -> Dict[str, Any]:
 
 def load_checkpoint_from_s3(bucket: str, key: str, local_path: Path) -> Dict[str, Any]:
     """Download and load checkpoint from S3"""
-    import boto3
-
     s3_client = boto3.client('s3')
 
     # Download to local
@@ -415,80 +571,14 @@ def finetune_model(
     return model
 
 
-def main():
-    """メイン関数"""
-    parser = argparse.ArgumentParser(description="Monthly model finetuning (CPU-only)")
-    parser.add_argument(
-        "--config",
-        type=str,
-        default="config/finetune.yaml",
-        help="Path to finetune config YAML",
-    )
-    args = parser.parse_args()
-
-    # 設定ファイルをロード
-    config_path = Path(args.config)
-    if not config_path.is_absolute():
-        config_path = Path(__file__).resolve().parent.parent.parent / config_path
-
-    cfg = load_config(config_path)
-    base_dir = get_base_dir(config_path)
-
-    # 環境設定
-    env, env_cfg, input_cfg, output_cfg = get_env_config(cfg)
-
-    # ファインチューニング設定
-    ft_cfg = cfg.get("finetuning", {})
-    recent_months = ft_cfg.get("recent_months", 1)
-    num_epochs = ft_cfg.get("num_epochs", 5)
-    learning_rate = ft_cfg.get("learning_rate", 0.0001)
-    batch_size = ft_cfg.get("batch_size", 32)
-
-    # Universe YAML パスを解決（環境に応じてローカルまたはS3から取得）
-    universe_yaml_path = resolve_universe_yaml_path_with_s3(cfg, config_path)
-
-    logger.info("=" * 60)
-    logger.info("Monthly Model Finetuning (CPU-only)")
-    logger.info("=" * 60)
-    logger.info(f"Config: {config_path}")
-    logger.info(f"Environment: {env}")
-    logger.info(f"Universe YAML: {universe_yaml_path}")
-    logger.info(f"Recent months: {recent_months}")
-    logger.info(f"Epochs: {num_epochs}")
-    logger.info(f"Learning rate: {learning_rate}")
-    logger.info("=" * 60)
-
-    # 1. チェックポイントをロード
-    logger.info("\n[INFO] Loading checkpoint...")
-
-    if env == "s3":
-        # S3からダウンロード
-        bucket = cfg["s3"]["bucket"]
-        checkpoint_key = input_cfg.get("checkpoint_key", "models/checkpoints/latest.ckpt")
-        local_checkpoint_path = Path("/tmp/checkpoint.ckpt")
-        checkpoint = load_checkpoint_from_s3(bucket, checkpoint_key, local_checkpoint_path)
-        daily_data_dir = None  # S3の場合は別途処理
-        s3_daily_prefix = input_cfg.get("daily_data_prefix", "daily")
-    else:
-        # ローカルから読み込み
-        checkpoint_path = resolve_path(
-            input_cfg.get("checkpoint_path", "checkpoints/latest.ckpt"), base_dir
-        )
-        checkpoint = load_checkpoint_from_local(checkpoint_path)
-        daily_data_dir = resolve_path(
-            input_cfg.get("daily_data_dir", "data/training/daily"), base_dir
-        )
-
-    logger.info(f"  Checkpoint loaded successfully")
-
-    # 2. モデルを再構築（純粋なPyTorchで）
+def reconstruct_model(checkpoint: Dict[str, Any]) -> Tuple[nn.Module, Dict[str, Any]]:
+    """チェックポイントからモデルを再構築"""
     logger.info("\n[INFO] Reconstructing model...")
 
     # ハイパーパラメータを取得
     hparams = checkpoint.get('hyper_parameters', {})
 
     # 純粋なPyTorchモデルを作成
-    # Note: hparamsのキー名とモデルのパラメータ名が異なる場合があるので、両方対応
     model = StockPredictionLSTM(
         lstm_input_size=hparams.get('lstm_input_size', hparams.get('weekly_input_size', 23)),
         static_feature_size=hparams.get('static_feature_size', hparams.get('static_input_size', 6)),
@@ -509,7 +599,7 @@ def main():
     model_state_dict = {}
     for key, value in state_dict.items():
         if key.startswith('model.'):
-            model_state_dict[key[6:]] = value  # 'model.' prefix を除去
+            model_state_dict[key[6:]] = value
         else:
             model_state_dict[key] = value
     model.load_state_dict(model_state_dict)
@@ -517,32 +607,71 @@ def main():
     logger.info(f"  Model reconstructed")
     logger.info(f"  Parameters: {sum(p.numel() for p in model.parameters()):,}")
 
+    return model, hparams
+
+
+def main():
+    """メイン関数"""
+    parser = argparse.ArgumentParser(description="Monthly model finetuning (CPU-only)")
+    parser.add_argument(
+        "--config",
+        type=str,
+        default="config/finetune.yaml",
+        help="Path to finetune config YAML",
+    )
+    args = parser.parse_args()
+
+    # 設定ファイルをロード
+    config_path = Path(args.config)
+    if not config_path.is_absolute():
+        config_path = Path(__file__).resolve().parent.parent.parent / config_path
+
+    raw_cfg = load_config(config_path)
+    cfg = resolve_finetune_config(raw_cfg, config_path)
+
+    # ログ出力
+    logger.info("=" * 60)
+    logger.info("Monthly Model Finetuning (CPU-only)")
+    logger.info("=" * 60)
+    logger.info(f"Config: {config_path}")
+    logger.info(f"Environment: {cfg.env}")
+    logger.info(f"Universe YAML: {cfg.universe_yaml_path}")
+    logger.info(f"Recent months: {cfg.recent_months}")
+    logger.info(f"Epochs: {cfg.num_epochs}")
+    logger.info(f"Learning rate: {cfg.learning_rate}")
+    logger.info("=" * 60)
+
+    # 1. チェックポイントをロード
+    checkpoint = load_checkpoint(cfg)
+
+    # 2. モデルを再構築
+    model, hparams = reconstruct_model(checkpoint)
+
     # 3. ファインチューニング用データを準備
-    if env == "s3":
-        bucket = cfg["s3"]["bucket"]
+    if cfg.is_s3_env:
         dataloader, num_sectors, sector_mapping = prepare_finetuning_data(
-            universe_yaml_path=Path(universe_yaml_path),
-            recent_months=recent_months,
-            batch_size=batch_size,
+            universe_yaml_path=Path(cfg.universe_yaml_path),
+            recent_months=cfg.recent_months,
+            batch_size=cfg.batch_size,
             source="s3",
-            path_or_prefix=s3_daily_prefix,
-            bucket=bucket,
+            path_or_prefix=cfg.daily_data_prefix,
+            bucket=cfg.bucket,
         )
     else:
         dataloader, num_sectors, sector_mapping = prepare_finetuning_data(
-            universe_yaml_path=Path(universe_yaml_path),
-            recent_months=recent_months,
-            batch_size=batch_size,
+            universe_yaml_path=Path(cfg.universe_yaml_path),
+            recent_months=cfg.recent_months,
+            batch_size=cfg.batch_size,
             source="local",
-            path_or_prefix=str(daily_data_dir),
+            path_or_prefix=str(cfg.daily_data_dir),
         )
 
     # 4. ファインチューニング
     finetuned_model = finetune_model(
         model=model,
         dataloader=dataloader,
-        num_epochs=num_epochs,
-        learning_rate=learning_rate,
+        num_epochs=cfg.num_epochs,
+        learning_rate=cfg.learning_rate,
         device='cpu',
     )
 
@@ -550,18 +679,11 @@ def main():
     logger.info("\n[INFO] Exporting to ONNX...")
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    # 固定名: best_model.onnx（上書き更新）
     onnx_filename = "best_model.onnx"
 
-    if env == "s3":
-        output_dir = Path("/tmp/onnx")
-    else:
-        output_dir = resolve_path(output_cfg.get("onnx_dir", "models/onnx"), base_dir)
+    cfg.output_dir.mkdir(parents=True, exist_ok=True)
+    onnx_path = cfg.output_dir / onnx_filename
 
-    output_dir.mkdir(parents=True, exist_ok=True)
-    onnx_path = output_dir / onnx_filename
-
-    # ONNX エクスポート（統一関数を使用）
     export_pytorch_model_to_onnx(
         model=finetuned_model,
         output_path=onnx_path,
@@ -570,15 +692,13 @@ def main():
     # メタデータを保存
     metadata_path = onnx_path.with_suffix(".json")
 
-    # sector_mapping は prepare_finetuning_data() から既に取得済み
-
     metadata = {
         "model_type": hparams.get("model_type", "lstm"),
         "finetuned_timestamp": timestamp,
         "finetuning_params": {
-            "recent_months": recent_months,
-            "num_epochs": num_epochs,
-            "learning_rate": learning_rate,
+            "recent_months": cfg.recent_months,
+            "num_epochs": cfg.num_epochs,
+            "learning_rate": cfg.learning_rate,
             "num_samples": len(dataloader.dataset),
         },
         "sector_mapping": sector_mapping,
@@ -598,57 +718,11 @@ def main():
 
     logger.info(f"  Metadata saved: {metadata_path}")
 
-    # 6. S3 アップロード（S3環境の場合）
-    if env == "s3":
-        try:
-            import boto3
+    # 6. 結果を保存
+    save_results(onnx_path, metadata_path, finetuned_model, hparams, timestamp, cfg)
 
-            bucket = cfg["s3"]["bucket"]
-            s3_prefix = output_cfg.get("onnx_prefix", "models/onnx")
-
-            logger.info(f"\n[INFO] Uploading to S3...")
-            s3_client = boto3.client('s3')
-
-            # ONNX モデル（固定名: best_model.onnx）
-            s3_key_onnx = f"{s3_prefix}/{onnx_filename}"
-            s3_client.upload_file(str(onnx_path), bucket, s3_key_onnx)
-            logger.info(f"  Uploaded to s3://{bucket}/{s3_key_onnx}")
-
-            # メタデータ（固定名: best_model.json）
-            s3_key_meta = f"{s3_prefix}/{onnx_filename.replace('.onnx', '.json')}"
-            s3_client.upload_file(str(metadata_path), bucket, s3_key_meta)
-            logger.info(f"  Uploaded to s3://{bucket}/{s3_key_meta}")
-
-        except Exception as e:
-            logger.error(f"  ERROR uploading to S3: {e}")
-
-    # 7. チェックポイントも保存（ローカル環境の場合）
-    if env == "local":
-        checkpoint_dir = resolve_path(output_cfg.get("checkpoint_dir", "checkpoints"), base_dir)
-        checkpoint_dir.mkdir(parents=True, exist_ok=True)
-
-        # ファインチューニング済みモデルを best_model.ckpt として上書き保存
-        best_ckpt_path = checkpoint_dir / "best_model.ckpt"
-
-        # 純粋なPyTorchで保存（Lightning形式と互換性を保つ）
-        torch.save({
-            'state_dict': {'model.' + k: v for k, v in finetuned_model.state_dict().items()},
-            'hyper_parameters': hparams,
-            'finetuned_at': timestamp,
-        }, best_ckpt_path)
-
-        logger.info(f"  Checkpoint saved: {best_ckpt_path}")
-
-    # 8. サマリ
-    logger.info("\n" + "=" * 60)
-    logger.info("Finetuning Complete")
-    logger.info("=" * 60)
-    logger.info(f"ONNX model: {onnx_path}")
-    logger.info(f"Metadata: {metadata_path}")
-    logger.info(f"Finetuning samples: {len(dataloader.dataset)}")
-    logger.info(f"  Recent {recent_months} month(s): ~{len(dataloader.dataset) * 2 // 3}")
-    logger.info(f"  Historical: ~{len(dataloader.dataset) // 3}")
-    logger.info("=" * 60)
+    # 7. サマリ
+    log_summary(onnx_path, metadata_path, len(dataloader.dataset), cfg.recent_months)
 
 
 if __name__ == "__main__":
