@@ -4,21 +4,18 @@
 # 使用例:
 #   python src/inference/predict.py --config config/predict.yaml
 
-defaults:
-  - _self_
-  - universes: "enrich_topix_core_30_20251031"
-
 # モデル設定
 model:
   onnx_path: "models/onnx/best_model.onnx"
 
 # 環境設定: "local" または "s3"
-env: "local"
+env: "s3"
 
 # ローカル環境設定
 local:
   input:
     daily_data_dir: "data/training/daily"
+    universe_path: "config/universes/enrich_topix_core_30_20251031.yaml"
   output:
     dir: "predictions"
 
@@ -27,6 +24,8 @@ s3:
   bucket: "stock-forecast-prod-apne1"
   input:
     daily_data_prefix: "daily"
+    onnx_key: "models/onnx/best_model.onnx"
+    universe_key: "config/universes/enrich_topix_core_30_20251031.yaml"
   output:
     predictions_prefix: "predictions"
 

@@ -31,7 +31,7 @@ if str(script_dir) not in sys.path:
     sys.path.insert(0, str(script_dir))
 
 from common.logging_config import setup_logger
-from common.s3_operations import upload_onnx_to_s3, upload_checkpoint_to_s3
+from common.s3_operations import upload_onnx_to_s3
 from data.utils.config import load_config, get_base_dir, get_env_config, resolve_path
 from model_src.datamodules.lstm_datamodule import LSTMDataModule
 from model_src.lit_modules.lit_model import StockPredictionLitModule
@@ -103,8 +103,9 @@ def create_datamodule(config: Dict[str, Any], config_path: Path) -> LSTMDataModu
     Returns:
         datamodule: LSTMDataModule
     """
+    from data.utils.config import resolve_universe_yaml_path_with_s3
+
     data_cfg = config.get("data", {})
-    universe_yaml_path = config.get("universe_yaml_path")
     base_dir = get_base_dir(config_path)
     env, _, input_cfg, _ = get_env_config(config)
 
@@ -113,10 +114,8 @@ def create_datamodule(config: Dict[str, Any], config_path: Path) -> LSTMDataModu
 
     daily_data_dir = resolve_path(input_cfg.get("daily_data_dir", "data/training/daily"), base_dir)
 
-    # universeファイルパスの解決
-    if universe_yaml_path is None:
-        from data.utils.config import resolve_universe_yaml_path
-        universe_yaml_path = resolve_universe_yaml_path(config, config_path)
+    # universeファイルパスの解決（環境に応じてローカルまたはS3から取得）
+    universe_yaml_path = resolve_universe_yaml_path_with_s3(config, config_path)
 
     # features_csv_dirの解決
     features_csv_dir = data_cfg.get("features_csv_dir")

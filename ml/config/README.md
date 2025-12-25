@@ -48,16 +48,22 @@ s3:
 
 ## Universe YAMLの指定
 
-設定ファイルでUniverseを指定する方法は2つあります:
+各環境セクション内の`input`で指定します:
 
 ```yaml
-# 方法1: defaults で指定（推奨）
-defaults:
-  - universes: enrich_topix_core_30_20251031
+# ローカル環境
+local:
+  input:
+    universe_path: "config/universes/enrich_topix_core_30_20251031.yaml"
 
-# 方法2: 直接パスで指定
-universe_path: "config/universes/enrich_topix_core_30_20251031.yaml"
+# S3環境
+s3:
+  bucket: "stock-forecast-prod-apne1"
+  input:
+    universe_key: "config/universes/enrich_topix_core_30_20251031.yaml"
 ```
+
+環境（`env`）に応じて適切なパスが自動的に使用されます。
 
 ---
 
@@ -67,9 +73,6 @@ universe_path: "config/universes/enrich_topix_core_30_20251031.yaml"
 
 ```yaml
 env: "local"  # "local" または "s3"
-
-defaults:
-  - universes: enrich_topix_core_30_20251031
 
 seed: 42
 deterministic: true
@@ -106,6 +109,7 @@ onnx:
 local:
   input:
     daily_data_dir: "data/training/daily"
+    universe_path: "config/universes/enrich_topix_core_30_20251031.yaml"
   output:
     checkpoint_dir: "checkpoints"
     onnx_dir: "models/onnx"
@@ -115,6 +119,7 @@ s3:
   bucket: "stock-forecast-prod-apne1"
   input:
     daily_data_prefix: "market_data/training/daily"
+    universe_key: "config/universes/enrich_topix_core_30_20251031.yaml"
   output:
     checkpoint_prefix: "models/checkpoints"
     onnx_prefix: "models/onnx"
@@ -138,15 +143,13 @@ models/onnx/
 ```yaml
 env: "local"
 
-defaults:
-  - universes: enrich_topix_core_30_20251031
-
 model:
   onnx_path: "models/onnx/best_model.onnx"
 
 local:
   input:
     daily_data_dir: "data/training/daily"
+    universe_path: "config/universes/enrich_topix_core_30_20251031.yaml"
   output:
     dir: "predictions"
 
@@ -154,6 +157,7 @@ s3:
   bucket: "stock-forecast-prod-apne1"
   input:
     daily_data_prefix: "daily"
+    universe_key: "config/universes/enrich_topix_core_30_20251031.yaml"
   output:
     predictions_prefix: "predictions"
 ```
@@ -175,9 +179,6 @@ predictions/
 ```yaml
 env: "local"
 
-defaults:
-  - universes: enrich_topix_core_30_20251031
-
 finetuning:
   recent_months: 1
   num_epochs: 5
@@ -188,6 +189,7 @@ local:
   input:
     checkpoint_path: "checkpoints/best_model.ckpt"
     daily_data_dir: "data/training/daily"
+    universe_path: "config/universes/enrich_topix_core_30_20251031.yaml"
   output:
     onnx_dir: "models/onnx"
     checkpoint_dir: "checkpoints"
@@ -197,6 +199,7 @@ s3:
   input:
     checkpoint_key: "models/checkpoints/best_model.ckpt"
     daily_data_prefix: "daily"
+    universe_key: "config/universes/enrich_topix_core_30_20251031.yaml"
   output:
     onnx_prefix: "models/onnx"
 ```
@@ -216,15 +219,17 @@ s3:
 
 ```yaml
 env: "local"
-defaults:
-  - universes: enrich_topix_core_30_20251031
 
 local:
+  input:
+    universe_path: "config/universes/enrich_topix_core_30_20251031.yaml"
   output:
     dir: "data/serving/daily"
 
 s3:
   bucket: "stock-forecast-prod-apne1"
+  input:
+    universe_key: "config/universes/enrich_topix_core_30_20251031.yaml"
   output:
     daily_prefix: "market_data/serving/daily"
 ```

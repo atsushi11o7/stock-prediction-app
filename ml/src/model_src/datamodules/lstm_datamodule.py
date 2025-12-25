@@ -31,6 +31,7 @@ if str(script_dir) not in sys.path:
 from common.logging_config import setup_logger
 from features.weekly_features import create_weekly_bars, get_weekly_feature_columns, extract_weekly_sequence
 from features.valuation_features import calc_static_features, get_static_feature_columns, extract_static_features
+from features.position_features import calc_position_features
 from data.utils.universe_loader import load_sector_mapping, get_sector_id
 
 logger = setup_logger(__name__)
@@ -98,10 +99,7 @@ class StockPredictionDataset(Dataset):
             static_feat = np.zeros(6, dtype=np.float32)
 
         # 位置特徴量 (2,): day_of_week (0-6), week_progress (0-1)
-        day_of_week = base_date.dayofweek  # Monday=0, Sunday=6
-        week_in_year = base_date.isocalendar()[1]
-        week_progress = week_in_year / 52.0
-        position_feat = np.array([day_of_week, week_progress], dtype=np.float32)
+        position_feat = calc_position_features(base_date)
 
         # セクターID
         sector = self.ticker_to_sector.get(ticker, "Unknown")

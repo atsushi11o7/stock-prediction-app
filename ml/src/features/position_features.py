@@ -3,23 +3,27 @@
 """
 ポジション特徴量の計算
 
-年間サイクル性を捉えるため、週番号をsin/cos変換した2特徴を計算する。
+時間的な位置情報を表す特徴量を計算する。
 """
 
 from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from common.constants import WEEKS_PER_YEAR
+
 
 def calc_position_features(as_of_date: pd.Timestamp) -> np.ndarray:
     """
-    ポジション特徴量を計算する（年間サイクル性）
+    ポジション特徴量を計算する
 
     Args:
         as_of_date: 基準日
 
     Returns:
-        (2,) のnumpy配列 [sin_week, cos_week]
+        (2,) のnumpy配列 [day_of_week, week_progress]
+        - day_of_week: 曜日 (0=月曜, 6=日曜)
+        - week_progress: 年間進捗 (1週目=1/52, 52週目=1.0)
 
     Example:
         >>> import pandas as pd
@@ -28,12 +32,11 @@ def calc_position_features(as_of_date: pd.Timestamp) -> np.ndarray:
         >>> print(features.shape)
         (2,)
     """
-    # ISO週番号を取得
+    # 曜日 (0=Monday, 6=Sunday)
+    day_of_week = as_of_date.dayofweek
+
+    # ISO週番号から年間進捗を計算
     week_of_year = as_of_date.isocalendar()[1]
-    week_frac = week_of_year / 52.0
+    week_progress = week_of_year / float(WEEKS_PER_YEAR)
 
-    # sin/cos変換で周期性を表現
-    sin_week = np.sin(2 * np.pi * week_frac)
-    cos_week = np.cos(2 * np.pi * week_frac)
-
-    return np.array([sin_week, cos_week], dtype=np.float32)
+    return np.array([day_of_week, week_progress], dtype=np.float32)

@@ -31,6 +31,7 @@ from data.utils.config import (
     load_yaml,
     parse_as_of,
     resolve_universe_yaml_path,
+    resolve_universe_yaml_path_with_s3,
     get_base_dir,
     get_env_config,
     resolve_path,
@@ -214,8 +215,8 @@ def main() -> None:
         print(f"Environment: {env}")
         print("=" * 60)
 
-        # Universe tickers
-        universe_yaml = resolve_universe_yaml_path(cfg, config_path)
+        # Universe tickers（環境に応じてローカルまたはS3から取得）
+        universe_yaml = resolve_universe_yaml_path_with_s3(cfg, config_path)
         print(f"\n[INFO] Loading universe from: {universe_yaml}")
         tickers = get_tickers_from_universe_yaml(universe_yaml)
 

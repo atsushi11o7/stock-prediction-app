@@ -312,3 +312,141 @@ def load_daily_data(
         )
     else:
         raise ValueError(f"Unknown source: {source}. Must be 'local' or 's3'")
+
+
+def load_daily_data_for_ticker(
+    daily_data_path: str,
+    ticker: str,
+) -> pd.DataFrame:
+    """
+    指定した銘柄の日次データを読み込む（推論用）
+
+    ローカルパスとS3 URIの両方に対応。
+
+    Args:
+        daily_data_path: ローカルパスまたはS3 URI (e.g., "s3://bucket/prefix")
+        ticker: 銘柄ティッカー
+
+    Returns:
+        DataFrame: 指定銘柄の日次データ
+    """
+    if daily_data_path.startswith("s3://"):
+        return _load_daily_data_for_ticker_from_s3(daily_data_path, ticker)
+    else:
+        return _load_daily_data_for_ticker_from_local(Path(daily_data_path), ticker)
+
+
+def _load_daily_data_for_ticker_from_local(
+    daily_data_dir: Path,
+    ticker: str,
+) -> pd.DataFrame:
+    """ローカルから指定銘柄の日次データを読み込む"""
+    json_files = sorted(daily_data_dir.glob("*.json"))
+    json_files = [f for f in json_files if f.name != "latest.json"]
+
+    if not json_files:
+        raise FileNotFoundError(f"No daily data files found in: {daily_data_dir}")
+
+    records = []
+    for json_path in json_files:
+        with open(json_path, "r", encoding="utf-8") as f:
+            daily_data = json.load(f)
+
+        as_of_date = daily_data.get("as_of")
+        if not as_of_date:
+            as_of_date = json_path.stem
+
+        symbols = daily_data.get("symbols", [])
+        for symbol in symbols:
+            if symbol.get("ticker") == ticker:
+                record = {
+                    "Date": as_of_date,
+                    "Ticker": ticker,
+                    "Open": symbol.get("open"),
+                    "High": symbol.get("high"),
+                    "Low": symbol.get("low"),
+                    "Close": symbol.get("close"),
+                    "AdjClose": symbol.get("adjclose"),
+                    "Volume": symbol.get("volume"),
+                }
+                records.append(record)
+                break
+
+    if not records:
+        raise ValueError(f"No data found for ticker: {ticker}")
+
+    df = pd.DataFrame(records)
+    df["Date"] = pd.to_datetime(df["Date"])
+    df.sort_values("Date", inplace=True)
+    df.reset_index(drop=True, inplace=True)
+
+    return df
+
+
+def _load_daily_data_for_ticker_from_s3(
+    s3_uri: str,
+    ticker: str,
+) -> pd.DataFrame:
+    """S3から指定銘柄の日次データを読み込む"""
+    import boto3
+
+    # Parse S3 URI
+    if not s3_uri.startswith("s3://"):
+        raise ValueError(f"Invalid S3 URI: {s3_uri}")
+
+    parts = s3_uri[5:].split("/", 1)
+    bucket = parts[0]
+    prefix = parts[1] if len(parts) > 1 else ""
+
+    s3_client = boto3.client("s3")
+
+    # S3からファイル一覧を取得
+    paginator = s3_client.get_paginator("list_objects_v2")
+    json_keys = []
+
+    for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
+        for obj in page.get("Contents", []):
+            key = obj["Key"]
+            if key.endswith(".json") and not key.endswith("latest.json"):
+                json_keys.append(key)
+
+    json_keys.sort()
+
+    if not json_keys:
+        raise FileNotFoundError(f"No daily data files found in: {s3_uri}")
+
+    records = []
+    for key in json_keys:
+        response = s3_client.get_object(Bucket=bucket, Key=key)
+        daily_data = json.loads(response["Body"].read().decode("utf-8"))
+
+        as_of_date = daily_data.get("as_of")
+        if not as_of_date:
+            filename = key.split("/")[-1]
+            as_of_date = filename.replace(".json", "")
+
+        symbols = daily_data.get("symbols", [])
+        for symbol in symbols:
+            if symbol.get("ticker") == ticker:
+                record = {
+                    "Date": as_of_date,
+                    "Ticker": ticker,
+                    "Open": symbol.get("open"),
+                    "High": symbol.get("high"),
+                    "Low": symbol.get("low"),
+                    "Close": symbol.get("close"),
+                    "AdjClose": symbol.get("adjclose"),
+                    "Volume": symbol.get("volume"),
+                }
+                records.append(record)
+                break
+
+    if not records:
+        raise ValueError(f"No data found for ticker: {ticker} in {s3_uri}")
+
+    df = pd.DataFrame(records)
+    df["Date"] = pd.to_datetime(df["Date"])
+    df.sort_values("Date", inplace=True)
+    df.reset_index(drop=True, inplace=True)
+
+    return df

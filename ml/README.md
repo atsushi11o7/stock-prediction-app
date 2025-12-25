@@ -60,11 +60,13 @@ ml/
 │       └── enrich_*.yaml      # 静的特徴量付きUniverse
 ├── src/                       # ソースコード
 │   ├── common/                # 共通モジュール
+│   │   ├── constants.py       # 定数定義（マジックナンバー集約）
 │   │   ├── logging_config.py  # ロギング設定
 │   │   └── s3_operations.py   # S3操作
 │   ├── data/                  # データ取得スクリプト
 │   │   ├── utils/             # ユーティリティ
 │   │   │   ├── config.py      # 設定読み込み（共通）
+│   │   │   ├── io.py          # データI/O（ローカル/S3両対応）
 │   │   │   ├── universe_loader.py  # Universe読み込み
 │   │   │   └── yfin.py        # yfinance操作
 │   │   ├── fetch_daily_universe.py   # 日次データ取得
@@ -87,6 +89,7 @@ ml/
 │       ├── train.py           # 初回学習
 │       ├── finetune.py        # ファインチューニング
 │       └── utils/             # 学習ユーティリティ
+│           └── onnx_export.py # ONNXエクスポート
 ├── data/                      # データディレクトリ
 │   ├── training/daily/        # 学習用日次データ
 │   └── serving/daily/         # 推論用日次データ
@@ -176,7 +179,7 @@ python src/pipeline/monthly_pipeline.py \
 入力:
   - weekly_seq: (156週, 23特徴)
   - static_features: (6特徴) ← PER, PBR, 配当利回り等
-  - position_features: (2特徴) ← sin/cos(week in year)
+  - position_features: (2特徴) ← day_of_week, week_progress
   - sector_id: (1)
 
 モデル:

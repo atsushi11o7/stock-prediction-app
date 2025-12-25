@@ -16,7 +16,14 @@ if str(script_dir) not in sys.path:
     sys.path.insert(0, str(script_dir))
 
 from common.logging_config import setup_logger
-from data.utils.config import load_config, get_base_dir, resolve_path
+from data.utils.config import (
+    load_config,
+    get_base_dir,
+    get_env_config,
+    resolve_path,
+    download_universe_from_s3,
+    upload_universe_to_s3,
+)
 
 logger = setup_logger(__name__)
 
@@ -257,31 +264,82 @@ def main() -> None:
             cfg = load_config(config_path)
             base_dir = get_base_dir(config_path)
 
-            input_path = args.input or cfg.get("input_path")
-            output_path = args.output or cfg.get("output_path")
+            # 環境設定を取得
+            env = cfg.get("env", "local")
             update_mode = cfg.get("update_mode", args.update_mode)
 
-            # 相対パスをbase_dirから解決
-            if input_path and not Path(input_path).is_absolute():
-                input_path = str(resolve_path(input_path, base_dir))
-            if output_path and not Path(output_path).is_absolute():
-                output_path = str(resolve_path(output_path, base_dir))
+            if env == "s3":
+                # S3環境
+                s3_cfg = cfg.get("s3", {})
+                bucket = s3_cfg.get("bucket")
+                input_key = s3_cfg.get("input_key")
+                output_key = s3_cfg.get("output_key")
+
+                if not bucket or not input_key or not output_key:
+                    raise ValueError(
+                        "S3 environment requires 's3.bucket', 's3.input_key', and 's3.output_key'"
+                    )
+
+                # S3から入力ファイルをダウンロード
+                print(f"[INFO] Downloading input from s3://{bucket}/{input_key}")
+                local_input_path = download_universe_from_s3(
+                    bucket, input_key, Path("/tmp/input_universe.yaml")
+                )
+
+                # ローカルの一時ファイルに出力
+                local_output_path = Path("/tmp/output_universe.yaml")
+
+                # 静的特徴量を付与
+                enrich_universe(
+                    input_path=str(local_input_path),
+                    output_path=str(local_output_path),
+                    update_mode=update_mode,
+                )
+
+                # S3にアップロード
+                print(f"\n[INFO] Uploading to s3://{bucket}/{output_key}")
+                upload_universe_to_s3(local_output_path, bucket, output_key)
+
+            else:
+                # ローカル環境
+                local_cfg = cfg.get("local", {})
+                input_path = args.input or local_cfg.get("input_path")
+                output_path = args.output or local_cfg.get("output_path")
+
+                # 相対パスをbase_dirから解決
+                if input_path and not Path(input_path).is_absolute():
+                    input_path = str(resolve_path(input_path, base_dir))
+                if output_path and not Path(output_path).is_absolute():
+                    output_path = str(resolve_path(output_path, base_dir))
+
+                # 必須パラメータのチェック
+                if not input_path:
+                    raise ValueError("--input or config.local.input_path is required")
+                if not output_path:
+                    raise ValueError("--output or config.local.output_path is required")
+
+                enrich_universe(
+                    input_path=input_path,
+                    output_path=output_path,
+                    update_mode=update_mode,
+                )
         else:
+            # 設定ファイルなし（引数のみ）
             input_path = args.input
             output_path = args.output
             update_mode = args.update_mode
 
-        # 必須パラメータのチェック
-        if not input_path:
-            raise ValueError("--input or config.input_path is required")
-        if not output_path:
-            raise ValueError("--output or config.output_path is required")
+            # 必須パラメータのチェック
+            if not input_path:
+                raise ValueError("--input is required")
+            if not output_path:
+                raise ValueError("--output is required")
 
-        enrich_universe(
-            input_path=input_path,
-            output_path=output_path,
-            update_mode=update_mode,
-        )
+            enrich_universe(
+                input_path=input_path,
+                output_path=output_path,
+                update_mode=update_mode,
+            )
     except Exception as e:
         print(f"\n[ERROR] {e}", file=sys.stderr)
         sys.exit(1)

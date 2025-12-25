@@ -4,12 +4,8 @@
 # 使用例:
 #   python src/training/finetune.py --config config/finetune.yaml
 
-defaults:
-  - _self_
-  - universes: "enrich_topix_core_30_20251031"
-
 # 環境設定: "local" または "s3"
-env: "local"
+env: "s3"
 
 # ファインチューニング設定
 finetuning:
@@ -23,6 +19,7 @@ local:
   input:
     daily_data_dir: "data/training/daily"
     checkpoint_path: "checkpoints/best_model.ckpt"
+    universe_path: "config/universes/enrich_topix_core_30_20251031.yaml"
   output:
     onnx_dir: "models/onnx"
     checkpoint_dir: "checkpoints"
@@ -32,10 +29,11 @@ s3:
   bucket: "stock-forecast-prod-apne1"
   input:
     daily_data_prefix: "daily"
-    checkpoint_key: "models/checkpoints/best_model.ckpt"
+    checkpoint_key: "checkpoints/best_model.ckpt"
+    universe_key: "config/universes/enrich_topix_core_30_20251031.yaml"
   output:
     onnx_prefix: "models/onnx"
-    checkpoint_prefix: "models/checkpoints"
+    checkpoint_prefix: "checkpoints"
 
 # ログ設定
 logging:

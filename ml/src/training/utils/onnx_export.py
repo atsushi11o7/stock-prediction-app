@@ -2,15 +2,45 @@
 
 """
 ONNX モデルエクスポート用ユーティリティ
+
+PyTorch Lightning モデルおよび純粋な PyTorch モデルの両方に対応。
 """
 
 from __future__ import annotations
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Union
 import json
+import logging
 
 import torch
-import pytorch_lightning as pl
+import torch.nn as nn
+
+# PyTorch Lightning はオプショナル
+try:
+    import pytorch_lightning as pl
+    HAS_LIGHTNING = True
+except ImportError:
+    HAS_LIGHTNING = False
+    pl = None
+
+# 定数をインポート
+import sys
+script_dir = Path(__file__).resolve().parent.parent.parent
+if str(script_dir) not in sys.path:
+    sys.path.insert(0, str(script_dir))
+
+from common.constants import (
+    N_WEEKS_INPUT,
+    N_WEEKLY_FEATURES,
+    N_STATIC_FEATURES,
+    N_POSITION_FEATURES,
+    DEFAULT_ONNX_OPSET_VERSION,
+    ONNX_DYNAMIC_AXES,
+    ONNX_INPUT_NAMES,
+    ONNX_OUTPUT_NAMES,
+)
+
+logger = logging.getLogger(__name__)
 
 
 class PathEncoder(json.JSONEncoder):
@@ -21,45 +51,34 @@ class PathEncoder(json.JSONEncoder):
         return super().default(obj)
 
 
-def export_to_onnx(
-    model: pl.LightningModule,
+def export_pytorch_model_to_onnx(
+    model: nn.Module,
     output_path: Path,
-    opset_version: int = 14,
-    dynamic_axes: Optional[Dict[str, Dict[int, str]]] = None,
+    opset_version: int = DEFAULT_ONNX_OPSET_VERSION,
+    num_sectors: int = 9,
 ) -> None:
     """
-    PyTorch Lightning モデルをONNXにエクスポート
+    純粋な PyTorch モデルをONNXにエクスポート
 
     Args:
-        model: PyTorch Lightning モデル
+        model: PyTorch モデル (nn.Module)
         output_path: 出力パス
         opset_version: ONNX opset バージョン
-        dynamic_axes: 動的軸の設定
+        num_sectors: セクター数（ダミー入力用）
     """
-    # ONNXエクスポートはCPUで行う
     model = model.cpu()
     model.eval()
 
-    # ダミー入力データ（CPU上に作成）
+    # ダミー入力データ
     batch_size = 1
-    dummy_weekly_seq = torch.randn(batch_size, 156, 23)
-    dummy_static_features = torch.randn(batch_size, 6)
-    dummy_position_features = torch.randn(batch_size, 2)
-    dummy_sector_id = torch.randint(0, 9, (batch_size,))
-
-    # デフォルトの動的軸設定
-    if dynamic_axes is None:
-        dynamic_axes = {
-            "weekly_seq": {0: "batch_size"},
-            "static_features": {0: "batch_size"},
-            "position_features": {0: "batch_size"},
-            "sector_id": {0: "batch_size"},
-            "output": {0: "batch_size"},
-        }
+    dummy_weekly_seq = torch.randn(batch_size, N_WEEKS_INPUT, N_WEEKLY_FEATURES)
+    dummy_static_features = torch.randn(batch_size, N_STATIC_FEATURES)
+    dummy_position_features = torch.randn(batch_size, N_POSITION_FEATURES)
+    dummy_sector_id = torch.randint(0, num_sectors, (batch_size,))
 
     # ONNX エクスポート
     torch.onnx.export(
-        model.model,  # PyTorch model
+        model,
         (
             dummy_weekly_seq,
             dummy_static_features,
@@ -70,12 +89,73 @@ def export_to_onnx(
         export_params=True,
         opset_version=opset_version,
         do_constant_folding=True,
-        input_names=["weekly_seq", "static_features", "position_features", "sector_id"],
-        output_names=["output"],
+        input_names=ONNX_INPUT_NAMES,
+        output_names=ONNX_OUTPUT_NAMES,
+        dynamic_axes=ONNX_DYNAMIC_AXES,
+    )
+
+    logger.info(f"ONNX model exported to: {output_path}")
+
+
+def export_to_onnx(
+    model: Union[nn.Module, "pl.LightningModule"],
+    output_path: Path,
+    opset_version: int = DEFAULT_ONNX_OPSET_VERSION,
+    dynamic_axes: Optional[Dict[str, Dict[int, str]]] = None,
+    num_sectors: int = 9,
+) -> None:
+    """
+    PyTorch / PyTorch Lightning モデルをONNXにエクスポート（統一インターフェース）
+
+    Args:
+        model: PyTorch モデル (nn.Module) または PyTorch Lightning モデル
+        output_path: 出力パス
+        opset_version: ONNX opset バージョン
+        dynamic_axes: 動的軸の設定（省略時はデフォルト値を使用）
+        num_sectors: セクター数（ダミー入力用）
+    """
+    # ONNXエクスポートはCPUで行う
+    model = model.cpu()
+    model.eval()
+
+    # ダミー入力データ（CPU上に作成）
+    batch_size = 1
+    dummy_weekly_seq = torch.randn(batch_size, N_WEEKS_INPUT, N_WEEKLY_FEATURES)
+    dummy_static_features = torch.randn(batch_size, N_STATIC_FEATURES)
+    dummy_position_features = torch.randn(batch_size, N_POSITION_FEATURES)
+    dummy_sector_id = torch.randint(0, num_sectors, (batch_size,))
+
+    # デフォルトの動的軸設定
+    if dynamic_axes is None:
+        dynamic_axes = ONNX_DYNAMIC_AXES
+
+    # PyTorch Lightning モデルか純粋な PyTorch モデルかを判定
+    if HAS_LIGHTNING and isinstance(model, pl.LightningModule):
+        # Lightning モデルの場合は内部モデルを使用
+        pytorch_model = model.model
+    else:
+        # 純粋な PyTorch モデル
+        pytorch_model = model
+
+    # ONNX エクスポート
+    torch.onnx.export(
+        pytorch_model,
+        (
+            dummy_weekly_seq,
+            dummy_static_features,
+            dummy_position_features,
+            dummy_sector_id,
+        ),
+        output_path,
+        export_params=True,
+        opset_version=opset_version,
+        do_constant_folding=True,
+        input_names=ONNX_INPUT_NAMES,
+        output_names=ONNX_OUTPUT_NAMES,
         dynamic_axes=dynamic_axes,
     )
 
-    print(f"[OK] ONNX model exported to: {output_path}")
+    logger.info(f"ONNX model exported to: {output_path}")
 
 
 def verify_onnx_model(

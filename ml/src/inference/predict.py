@@ -22,126 +22,17 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from common.logging_config import setup_logger
-from common.s3_operations import (
-    upload_predictions_to_s3,
-    is_s3_path,
-    parse_s3_uri,
-    iter_s3_json_files,
-)
 from data.utils.universe_loader import load_universe_data, load_sector_mapping
 from data.utils.config import (
     load_config as _load_config,
-    resolve_universe_yaml_path,
+    resolve_universe_yaml_path_with_s3,
     get_base_dir,
-    get_env_config,
-    resolve_path,
 )
+from data.utils.io import load_daily_data_for_ticker
 from features.weekly_features import create_weekly_bars
 from features.position_features import calc_position_features
 
 logger = setup_logger(__name__)
-
-
-def load_daily_data_from_local(daily_data_dir: Path, ticker: str) -> pd.DataFrame:
-    """Load daily data for a single ticker from local JSON files"""
-    json_files = sorted(daily_data_dir.glob("*.json"))
-
-    if not json_files:
-        raise FileNotFoundError(f"No daily data files found in: {daily_data_dir}")
-
-    all_records = []
-
-    for json_path in json_files:
-        with open(json_path, "r", encoding="utf-8") as f:
-            daily_data = json.load(f)
-
-        as_of_date = daily_data.get("as_of")
-        if not as_of_date:
-            as_of_date = json_path.stem
-
-        symbols = daily_data.get("symbols", [])
-        for symbol in symbols:
-            if symbol.get("ticker") == ticker:
-                record = {
-                    "Date": as_of_date,
-                    "Ticker": ticker,
-                    "Open": symbol.get("open"),
-                    "High": symbol.get("high"),
-                    "Low": symbol.get("low"),
-                    "Close": symbol.get("close"),
-                    "AdjClose": symbol.get("adjclose"),
-                    "Volume": symbol.get("volume"),
-                }
-                all_records.append(record)
-                break
-
-    if not all_records:
-        raise ValueError(f"No data found for ticker: {ticker}")
-
-    df = pd.DataFrame(all_records)
-    df["Date"] = pd.to_datetime(df["Date"])
-    df.sort_values("Date", inplace=True)
-    df.reset_index(drop=True, inplace=True)
-
-    return df
-
-
-def load_daily_data_from_s3(s3_uri: str, ticker: str) -> pd.DataFrame:
-    """Load daily data for a single ticker from S3 JSON files"""
-    bucket, prefix = parse_s3_uri(s3_uri)
-
-    all_records = []
-
-    for key, daily_data in iter_s3_json_files(bucket, prefix, suffix=".json"):
-        as_of_date = daily_data.get("as_of")
-        if not as_of_date:
-            # Parse from key (e.g., "daily/2024-01-01.json")
-            filename = key.split("/")[-1]
-            as_of_date = filename.replace(".json", "")
-
-        symbols = daily_data.get("symbols", [])
-        for symbol in symbols:
-            if symbol.get("ticker") == ticker:
-                record = {
-                    "Date": as_of_date,
-                    "Ticker": ticker,
-                    "Open": symbol.get("open"),
-                    "High": symbol.get("high"),
-                    "Low": symbol.get("low"),
-                    "Close": symbol.get("close"),
-                    "AdjClose": symbol.get("adjclose"),
-                    "Volume": symbol.get("volume"),
-                }
-                all_records.append(record)
-                break
-
-    if not all_records:
-        raise ValueError(f"No data found for ticker: {ticker} in {s3_uri}")
-
-    df = pd.DataFrame(all_records)
-    df["Date"] = pd.to_datetime(df["Date"])
-    df.sort_values("Date", inplace=True)
-    df.reset_index(drop=True, inplace=True)
-
-    return df
-
-
-def load_daily_data(daily_data_path: str, ticker: str) -> pd.DataFrame:
-    """
-    Load daily data for a single ticker from JSON files.
-    Supports both local paths and S3 URIs.
-
-    Args:
-        daily_data_path: Local path or S3 URI (e.g., "s3://bucket/prefix")
-        ticker: Stock ticker symbol
-
-    Returns:
-        DataFrame with daily OHLCV data
-    """
-    if is_s3_path(daily_data_path):
-        return load_daily_data_from_s3(daily_data_path, ticker)
-    else:
-        return load_daily_data_from_local(Path(daily_data_path), ticker)
 
 
 def calc_static_features_for_ticker(
@@ -202,7 +93,7 @@ def predict_ticker(
 ) -> Dict[str, Any]:
     """Generate prediction for a single ticker"""
     # Load daily data (supports both local path and S3 URI)
-    df_daily = load_daily_data(daily_data_path, ticker)
+    df_daily = load_daily_data_for_ticker(daily_data_path, ticker)
 
     if as_of_date is None:
         as_of_date = df_daily["Date"].max()
@@ -289,8 +180,8 @@ def load_config(config_path: Path) -> Dict[str, Any]:
     """設定ファイルを読み込む"""
     config = _load_config(config_path)
 
-    # universes の解決（resolve_universe_yaml_path は cfg と config_path を引数に取る）
-    config["_universe_yaml_path"] = resolve_universe_yaml_path(config, config_path)
+    # universes の解決（環境に応じてローカルまたはS3から取得）
+    config["_universe_yaml_path"] = resolve_universe_yaml_path_with_s3(config, config_path)
 
     return config
 
@@ -337,10 +228,6 @@ def main():
     if not universe_yaml_path:
         raise ValueError("universes not specified in config defaults")
 
-    # モデル設定
-    model_cfg = config.get("model", {})
-    onnx_model_path = project_root / model_cfg.get("onnx_path", "models/onnx/best_model.onnx")
-
     # 環境設定 (local or s3)
     env = config.get("env", "local")
     is_s3_env = env == "s3"
@@ -357,7 +244,23 @@ def main():
 
         predictions_prefix = s3_output_cfg.get("predictions_prefix", "predictions")
         # S3環境でもローカルに一時保存してからアップロード
-        output_dir = project_root / "predictions"
+        output_dir = Path("/tmp/predictions")
+
+        # ONNXモデルをS3からダウンロード
+        onnx_key = s3_input_cfg.get("onnx_key", "models/onnx/best_model.onnx")
+        onnx_model_path = Path("/tmp") / "best_model.onnx"
+        import boto3
+        s3_client = boto3.client('s3')
+        logger.info(f"Downloading ONNX model from s3://{s3_bucket}/{onnx_key}...")
+        s3_client.download_file(s3_bucket, onnx_key, str(onnx_model_path))
+
+        # メタデータもダウンロード（存在する場合）
+        metadata_key = onnx_key.replace(".onnx", ".json")
+        metadata_path = Path("/tmp") / "best_model.json"
+        try:
+            s3_client.download_file(s3_bucket, metadata_key, str(metadata_path))
+        except Exception:
+            metadata_path = None  # メタデータがない場合
     else:
         # ローカル環境
         local_cfg = config.get("local", {})
@@ -370,6 +273,11 @@ def main():
         output_dir = project_root / local_output_cfg.get("dir", "predictions")
         s3_bucket = None
         predictions_prefix = None
+
+        # モデル設定
+        model_cfg = config.get("model", {})
+        onnx_model_path = project_root / model_cfg.get("onnx_path", "models/onnx/best_model.onnx")
+        metadata_path = onnx_model_path.with_suffix(".json")
 
     logger.info("=" * 60)
     logger.info("Daily Stock Prediction Inference")
@@ -397,8 +305,7 @@ def main():
     # Load sector mapping
     # 1. モデルメタデータがある場合はそれを使用（既存モデルとの互換性）
     # 2. ない場合は sectors.yaml を使用
-    metadata_path = onnx_model_path.with_suffix(".json")
-    if metadata_path.exists():
+    if metadata_path and metadata_path.exists():
         logger.info("Loading sector mapping from model metadata...")
         with open(metadata_path, "r", encoding="utf-8") as f:
             metadata = json.load(f)

@@ -111,7 +111,11 @@ def parse_as_of(as_of: str) -> Optional[date]:
 
 def resolve_universe_yaml_path(cfg: Dict[str, Any], config_path: Path) -> Path:
     """
-    universe YAML のパスを解決する
+    universe YAML のパスを解決する（ローカル環境用）
+
+    優先順位:
+    1. local.input.universe_path
+    2. universe_path（トップレベル）
 
     Args:
         cfg (Dict[str, Any]): 全体の設定辞書
@@ -119,19 +123,99 @@ def resolve_universe_yaml_path(cfg: Dict[str, Any], config_path: Path) -> Path:
     Returns:
         path (Path): 解決した universe YAML のパス
     """
-    if cfg.get("universe_path"):
-        p = Path(str(cfg["universe_path"]))
-        return p if p.is_absolute() else (config_path.parent / p).resolve()
+    base_dir = config_path.parent.parent  # ml/ ディレクトリ
 
-    defaults = cfg.get("defaults", [])
-    universe_name: Optional[str] = None
-    if isinstance(defaults, list):
-        for d in defaults:
-            if isinstance(d, dict) and "universes" in d:
-                universe_name = d["universes"]
-                break
+    # 1. local.input.universe_path を優先
+    local_cfg = cfg.get("local", {})
+    input_cfg = local_cfg.get("input", {})
+    universe_path = input_cfg.get("universe_path")
 
-    if not universe_name:
-        raise ValueError("Universe not specified. Set `universe_path:` or `defaults: - universes: <name>`.")
+    # 2. フォールバック: トップレベルの universe_path
+    if not universe_path:
+        universe_path = cfg.get("universe_path")
 
-    return (config_path.parent / "universes" / f"{universe_name}.yaml").resolve()
+    if universe_path:
+        p = Path(str(universe_path))
+        if p.is_absolute():
+            return p
+        return (base_dir / p).resolve()
+
+    raise ValueError(
+        "Universe not specified. Set 'local.input.universe_path' in config."
+    )
+
+
+def download_universe_from_s3(bucket: str, key: str, local_path: Optional[Path] = None) -> Path:
+    """
+    S3からuniverse YAMLをダウンロードしてローカルパスを返す
+
+    Args:
+        bucket: S3バケット名
+        key: S3キー（例: "config/universes/enrich_topix_core_30_20251031.yaml"）
+        local_path: ローカル保存先パス（省略時は/tmp/に保存）
+
+    Returns:
+        Path: ダウンロードしたファイルのローカルパス
+    """
+    import boto3
+
+    if local_path is None:
+        filename = key.split("/")[-1]
+        local_path = Path("/tmp") / filename
+
+    s3_client = boto3.client('s3')
+    s3_client.download_file(bucket, key, str(local_path))
+
+    return local_path
+
+
+def resolve_universe_yaml_path_with_s3(
+    cfg: Dict[str, Any],
+    config_path: Path,
+) -> Path:
+    """
+    環境に応じてuniverse YAMLのパスを解決する
+
+    - env: "local" の場合: ローカルファイルシステムから読み込み
+    - env: "s3" の場合: S3からダウンロードしてローカルパスを返す
+
+    Args:
+        cfg: 設定辞書
+        config_path: 設定ファイルのパス
+
+    Returns:
+        Path: universe YAMLのローカルパス
+    """
+    env = cfg.get("env", "local")
+
+    if env == "s3":
+        s3_cfg = cfg.get("s3", {})
+        bucket = s3_cfg.get("bucket")
+        input_cfg = s3_cfg.get("input", {})
+        universe_key = input_cfg.get("universe_key")
+
+        if not bucket or not universe_key:
+            raise ValueError(
+                "S3 environment requires 's3.bucket' and 's3.input.universe_key' in config"
+            )
+
+        return download_universe_from_s3(bucket, universe_key)
+    else:
+        # ローカル環境
+        return resolve_universe_yaml_path(cfg, config_path)
+
+
+def upload_universe_to_s3(local_path: Path, bucket: str, key: str) -> None:
+    """
+    universe YAMLをS3にアップロード
+
+    Args:
+        local_path: ローカルファイルパス
+        bucket: S3バケット名
+        key: S3キー
+    """
+    import boto3
+
+    s3_client = boto3.client('s3')
+    s3_client.upload_file(str(local_path), bucket, key)
+    print(f"[INFO] Uploaded to s3://{bucket}/{key}")

@@ -4,10 +4,6 @@
 # 使用例:
 #   python src/training/train.py --config config/train.yaml
 
-defaults:
-  - _self_
-  - universes: "enrich_topix_core_30_20251031"
-
 # 環境設定: "local" または "s3"
 env: "local"
 
@@ -58,6 +54,7 @@ training:
 local:
   input:
     daily_data_dir: "data/training/daily"
+    universe_path: "config/universes/enrich_topix_core_30_20251031.yaml"
   output:
     checkpoint_dir: "checkpoints"
     onnx_dir: "models/onnx"
@@ -68,6 +65,7 @@ s3:
   bucket: "stock-forecast-prod-apne1"
   input:
     daily_data_prefix: "market_data/training/daily"
+    universe_key: "config/universes/enrich_topix_core_30_20251031.yaml"
   output:
     checkpoint_prefix: "models/checkpoints"
     onnx_prefix: "models/onnx"

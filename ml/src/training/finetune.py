@@ -29,71 +29,25 @@ if str(script_dir) not in sys.path:
     sys.path.insert(0, str(script_dir))
 
 from common.logging_config import setup_logger
-from common.s3_operations import upload_onnx_to_s3, upload_checkpoint_to_s3
+from common.constants import (
+    N_WEEKS_INPUT,
+    N_STATIC_FEATURES,
+    FINETUNE_LOOKBACK_YEARS,
+    MIN_DAILY_RECORDS_PER_TICKER,
+)
 from data.utils.config import (
-    resolve_universe_yaml_path,
+    resolve_universe_yaml_path_with_s3,
     load_config,
     get_base_dir,
     get_env_config,
     resolve_path,
 )
 from data.utils.io import load_daily_data
+from features.position_features import calc_position_features
 from model_src.models.lstm_model import StockPredictionLSTM
+from training.utils.onnx_export import export_pytorch_model_to_onnx
 
 logger = setup_logger(__name__)
-
-
-def export_model_to_onnx(
-    model: nn.Module,
-    output_path: Path,
-    opset_version: int = 14,
-) -> None:
-    """
-    純粋なPyTorchモデルをONNXにエクスポート（PyTorch Lightning不要）
-
-    Args:
-        model: StockPredictionLSTM モデル
-        output_path: 出力パス
-        opset_version: ONNX opset バージョン
-    """
-    model = model.cpu()
-    model.eval()
-
-    # ダミー入力データ
-    batch_size = 1
-    dummy_weekly_seq = torch.randn(batch_size, 156, 23)
-    dummy_static_features = torch.randn(batch_size, 6)
-    dummy_position_features = torch.randn(batch_size, 2)
-    dummy_sector_id = torch.randint(0, 9, (batch_size,))
-
-    # 動的軸設定
-    dynamic_axes = {
-        "weekly_seq": {0: "batch_size"},
-        "static_features": {0: "batch_size"},
-        "position_features": {0: "batch_size"},
-        "sector_id": {0: "batch_size"},
-        "output": {0: "batch_size"},
-    }
-
-    # ONNX エクスポート
-    torch.onnx.export(
-        model,
-        (
-            dummy_weekly_seq,
-            dummy_static_features,
-            dummy_position_features,
-            dummy_sector_id,
-        ),
-        output_path,
-        export_params=True,
-        opset_version=opset_version,
-        do_constant_folding=True,
-        input_names=["weekly_seq", "static_features", "position_features", "sector_id"],
-        output_names=["output"],
-        dynamic_axes=dynamic_axes,
-    )
-
-    logger.info(f"  ONNX model exported to: {output_path}")
 
 
 def load_checkpoint_from_local(checkpoint_path: Path) -> Dict[str, Any]:
@@ -133,11 +87,10 @@ def prepare_finetuning_data(
     全データを読み込まず、必要な期間（約3年+α）のみを読み込む
     """
     import pandas as pd
-    import yaml
 
     from features.weekly_features import create_weekly_bars, extract_weekly_sequence
     from features.valuation_features import calc_static_features, extract_static_features
-    from data.utils.universe_loader import load_sector_mapping, get_sector_id
+    from data.utils.universe_loader import load_sector_mapping, load_universe_data
 
     logger.info("\n[INFO] Preparing finetuning data (optimized)...")
     logger.info(f"  Data source: {source}")
@@ -153,7 +106,7 @@ def prepare_finetuning_data(
     #   - base_date から過去156週（3年）の週次特徴量が必要
     # つまり: 最新日付 - 12ヶ月 - 3年 = 最新日付 - 4年分のデータが必要
     # さらに週次特徴量計算のマージンを加えて5年分
-    lookback_days = 365 * 5  # 約5年
+    lookback_days = 365 * FINETUNE_LOOKBACK_YEARS
     logger.info(f"\n[INFO] Loading only recent {lookback_days} days of data...")
 
     daily_df = load_daily_data(
@@ -169,7 +122,7 @@ def prepare_finetuning_data(
     weekly_df = create_weekly_bars(
         daily_df,
         as_of_date=None,
-        n_weeks=300,  # 156週 × 2（余裕を持たせる）
+        n_weeks=N_WEEKS_INPUT * 2,  # 余裕を持たせる
     )
     logger.info(f"[OK] Generated {len(weekly_df)} weekly bars")
 
@@ -187,10 +140,11 @@ def prepare_finetuning_data(
     # 4. セクターマッピング
     logger.info("\n[INFO] Creating sector mapping...")
     sector_mapping = load_sector_mapping()
-    with open(universe_yaml_path, "r", encoding="utf-8") as f:
-        universe_data = yaml.safe_load(f)
-    universe = universe_data.get("universe", [])
-    ticker_to_sector = {item["ticker"]: item.get("sector", "Unknown") for item in universe if item.get("ticker")}
+    universe_data = load_universe_data(universe_yaml_path)
+    ticker_to_sector = {
+        item["ticker"]: item.get("sector", "Unknown")
+        for item in universe_data["tickers"]
+    }
     logger.info(f"[OK] Found {len(sector_mapping)} sectors")
 
     # 5. サンプル生成（直近データのみから）
@@ -199,7 +153,7 @@ def prepare_finetuning_data(
         daily_df=daily_df,
         weekly_df=weekly_df,
         recent_months=recent_months,
-        n_weeks_input=156,
+        n_weeks_input=N_WEEKS_INPUT,
     )
     logger.info(f"[OK] Generated {len(samples)} finetuning samples")
 
@@ -216,21 +170,18 @@ def prepare_finetuning_data(
         base_date = pd.Timestamp(sample["base_date"])
         target_returns = sample["target_returns"]
 
-        # 週次時系列特徴量 (156, 23)
-        weekly_seq = extract_weekly_sequence(weekly_df, ticker, base_date, n_weeks=156)
+        # 週次時系列特徴量 (N_WEEKS_INPUT, N_WEEKLY_FEATURES)
+        weekly_seq = extract_weekly_sequence(weekly_df, ticker, base_date, n_weeks=N_WEEKS_INPUT)
         if weekly_seq is None:
-            weekly_seq = np.zeros((156, 23), dtype=np.float32)
+            weekly_seq = np.zeros((N_WEEKS_INPUT, 23), dtype=np.float32)
 
-        # 静的特徴量 (6,)
+        # 静的特徴量 (N_STATIC_FEATURES,)
         static_feat = extract_static_features(static_df, ticker)
         if static_feat is None:
-            static_feat = np.zeros(6, dtype=np.float32)
+            static_feat = np.zeros(N_STATIC_FEATURES, dtype=np.float32)
 
         # 位置特徴量 (2,)
-        day_of_week = base_date.dayofweek
-        week_in_year = base_date.isocalendar()[1]
-        week_progress = week_in_year / 52.0
-        position_feat = np.array([day_of_week, week_progress], dtype=np.float32)
+        position_feat = calc_position_features(base_date)
 
         # セクターID
         sector = ticker_to_sector.get(ticker, "Unknown")
@@ -296,7 +247,6 @@ def _generate_finetuning_samples(
     - 過去データ: 2024/11/21 より前からランダムサンプリング
     """
     import pandas as pd
-    from datetime import timedelta
     import random
 
     samples = []
@@ -319,7 +269,7 @@ def _generate_finetuning_samples(
     for ticker in tickers:
         ticker_daily = daily_df[daily_df["Ticker"] == ticker].sort_values("Date")
 
-        if len(ticker_daily) < 200:
+        if len(ticker_daily) < MIN_DAILY_RECORDS_PER_TICKER:
             continue
 
         # 直近サンプルと過去サンプルを分けて生成
@@ -494,8 +444,8 @@ def main():
     learning_rate = ft_cfg.get("learning_rate", 0.0001)
     batch_size = ft_cfg.get("batch_size", 32)
 
-    # Universe YAML パスを解決
-    universe_yaml_path = resolve_universe_yaml_path(cfg, config_path)
+    # Universe YAML パスを解決（環境に応じてローカルまたはS3から取得）
+    universe_yaml_path = resolve_universe_yaml_path_with_s3(cfg, config_path)
 
     logger.info("=" * 60)
     logger.info("Monthly Model Finetuning (CPU-only)")
@@ -611,11 +561,10 @@ def main():
     output_dir.mkdir(parents=True, exist_ok=True)
     onnx_path = output_dir / onnx_filename
 
-    # ONNX エクスポート（純粋なPyTorchで実行）
-    export_model_to_onnx(
+    # ONNX エクスポート（統一関数を使用）
+    export_pytorch_model_to_onnx(
         model=finetuned_model,
         output_path=onnx_path,
-        opset_version=14,
     )
 
     # メタデータを保存
