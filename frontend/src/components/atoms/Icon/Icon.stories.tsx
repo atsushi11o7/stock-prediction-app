@@ -1,5 +1,5 @@
 // src/components/atoms/Icon/Icon.stories.tsx
-import type { Meta, StoryObj } from "@storybook/react";
+import type { Meta, StoryObj } from "@storybook/nextjs"
 import Icon, { type IconName } from "./Icon";
 
 const names: IconName[] = ["home", "lineChart", "newspaper", "trendingUp", "compare", "search"];

@@ -1,5 +1,5 @@
 // src/components/molecules/TickerCard/TickerCard.stories.tsx
-import type { Meta, StoryObj } from "@storybook/react";
+import type { Meta, StoryObj } from "@storybook/nextjs";
 import TickerCard from "./TickerCard";
 
 const meta: Meta<typeof TickerCard> = {
