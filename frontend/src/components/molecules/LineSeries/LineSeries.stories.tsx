@@ -1,5 +1,5 @@
 import React from "react";
-import type { Meta, StoryObj } from "@storybook/react";
+import type { Meta, StoryObj } from "@storybook/nextjs";
 import LineSeries, { type LineSeriesProps, type Series } from "./LineSeries";
 
 /** --- ストーリー内ユーティリティ --------------------------------------- */

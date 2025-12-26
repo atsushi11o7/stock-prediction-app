@@ -1,5 +1,5 @@
 // src/components/atoms/Label/Label.stories.tsx
-import type { Meta, StoryObj } from "@storybook/react";
+import type { Meta, StoryObj } from "@storybook/nextjs"
 import Label from "./Label";
 
 const meta: Meta<typeof Label> = {

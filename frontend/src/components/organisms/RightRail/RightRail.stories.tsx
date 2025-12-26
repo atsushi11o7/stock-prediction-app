@@ -1,4 +1,4 @@
-import type { Meta, StoryObj } from "@storybook/react";
+import type { Meta, StoryObj } from "@storybook/nextjs";
 import RightRail from "./RightRail";
 import RailCard from "@/components/molecules/RailCard";
 

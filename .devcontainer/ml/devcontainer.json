@@ -1,0 +1,22 @@
+{
+  "name": "ML Dev Container",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+  "workspaceFolder": "/workspace",
+  "mounts": [
+    "source=${localWorkspaceFolder},target=/workspace,type=bind",
+    "source=/mnt/c/Users/atsushi/,target=/data,type=bind"
+  ],
+  "runArgs": ["--gpus", "all"],
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "python.defaultInterpreterPath": "/opt/venv/bin/python"
+      }
+    }
+  },
+  "remoteUser": "root"
+}

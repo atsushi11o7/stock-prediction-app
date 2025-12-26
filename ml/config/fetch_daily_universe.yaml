@@ -1,0 +1,47 @@
+# config/fetch_daily_universe.yaml
+# 日次データ取得設定（推論用）
+#
+# 使用例:
+#   python src/data/fetch_daily_universe.py --config config/fetch_daily_universe.yaml
+
+# 環境設定: "local" または "s3"
+env: "s3"
+
+# 取得対象日（"auto" の場合は最新の取引日を自動判定）
+as_of: "auto"
+
+# yfinance パラメータ
+yf:
+  interval: "1d"
+  period: "3d"
+  use_adjclose: true
+
+fields:
+  - "open"
+  - "high"
+  - "low"
+  - "close"
+  - "adjclose"
+  - "volume"
+
+# ローカル環境設定
+local:
+  input:
+    universe_path: "config/universes/enrich_topix_core_30_20251031.yaml"
+  output:
+    dir: "data/training/daily"
+
+# S3環境設定
+s3:
+  bucket: "stock-forecast-prod-apne1"
+  input:
+    universe_key: "config/universes/enrich_topix_core_30_20251031.yaml"
+  output:
+    daily_prefix: "daily"
+
+retry:
+  times: 3
+  sleep_seconds: 1.0
+
+logging:
+  level: "INFO"
