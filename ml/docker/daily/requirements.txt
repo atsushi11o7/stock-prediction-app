@@ -1,0 +1,7 @@
+# Daily inference dependencies (lightweight, no PyTorch)
+onnxruntime==1.16.3
+numpy>=1.24.0,<2.0.0
+pandas>=2.0.0,<3.0.0
+yfinance>=0.2.36
+PyYAML>=6.0
+boto3>=1.34.0

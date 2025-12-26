@@ -1,4 +1,5 @@
-import type { Meta, StoryObj } from "@storybook/react";
+// src/components/atoms/Badge/Badge.stories.tsx
+import type { Meta, StoryObj } from "@storybook/nextjs"
 import Badge from "./Badge";
 
 const meta: Meta<typeof Badge> = {

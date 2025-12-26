@@ -1,0 +1,249 @@
+universe:
+- code: 2914
+  name: 日本たばこ産業
+  ticker: 2914.T
+  sector: Consumer Defensive
+  industry: Tobacco
+  PER: 52.909374
+  PBR: 2.4746218
+  DividendYield: 4.5
+- code: 3382
+  name: セブン&アイ・ホールディングス
+  ticker: 3382.T
+  sector: Consumer Defensive
+  industry: Grocery Stores
+  PER: 23.530346
+  PBR: 1.5288836
+  DividendYield: 2.25
+- code: 4063
+  name: 信越化学工業
+  ticker: 4063.T
+  sector: Basic Materials
+  industry: Chemicals
+  PER: 18.553104
+  PBR: 2.1227336
+  DividendYield: 2.21
+- code: 4502
+  name: 武田薬品工業
+  ticker: 4502.T
+  sector: Healthcare
+  industry: Drug Manufacturers - Specialty & Generic
+  PER: 222.20078
+  PBR: 1.0198795
+  DividendYield: 4.34
+- code: 4568
+  name: 第一三共
+  ticker: 4568.T
+  sector: Healthcare
+  industry: Drug Manufacturers - General
+  PER: 22.075054
+  PBR: 3.696071
+  DividendYield: 2.36
+- code: 6098
+  name: リクルートホールディングス
+  ticker: 6098.T
+  sector: Communication Services
+  industry: Internet Content & Information
+  PER: 29.761545
+  PBR: 8.549816
+  DividendYield: 0.28
+- code: 6367
+  name: ダイキン工業
+  ticker: 6367.T
+  sector: Industrials
+  industry: Building Products & Equipment
+  PER: 20.96446
+  PBR: 1.9205776
+  DividendYield: 1.68
+- code: 6501
+  name: 日立製作所
+  ticker: 6501.T
+  sector: Industrials
+  industry: Conglomerates
+  PER: 29.41247
+  PBR: 3.6411088
+  DividendYield: 0.92
+- code: 6503
+  name: 三菱電機
+  ticker: 6503.T
+  sector: Industrials
+  industry: Electrical Equipment & Parts
+  PER: 24.096891
+  PBR: 2.3287427
+  DividendYield: 1.2
+- code: 6758
+  name: ソニーグループ
+  ticker: 6758.T
+  sector: Technology
+  industry: Consumer Electronics
+  PER: 19.96002
+  PBR: 3.105351
+  DividendYield: 0.63
+- code: 6857
+  name: アドバンテスト
+  ticker: 6857.T
+  sector: Technology
+  industry: Semiconductor Equipment & Materials
+  PER: 54.053677
+  PBR: 22.876245
+  DividendYield: 0.26
+- code: 6861
+  name: キーエンス
+  ticker: 6861.T
+  sector: Technology
+  industry: Scientific & Technical Instruments
+  PER: 32.894657
+  PBR: 4.104779
+  DividendYield: 0.99
+- code: 7011
+  name: 三菱重工業
+  ticker: 7011.T
+  sector: Industrials
+  industry: Specialty Industrial Machinery
+  PER: 47.849133
+  PBR: 5.2365837
+  DividendYield: 0.62
+- code: 7203
+  name: トヨタ自動車
+  ticker: 7203.T
+  sector: Consumer Cyclical
+  industry: Auto Manufacturers
+  PER: 9.689836
+  PBR: 1.1902853
+  DividendYield: 2.77
+- code: 7267
+  name: 本田技研工業
+  ticker: 7267.T
+  sector: Consumer Cyclical
+  industry: Auto Manufacturers
+  PER: 10.246117
+  PBR: 0.5068424
+  DividendYield: 4.5
+- code: 7741
+  name: HOYA
+  ticker: 7741.T
+  sector: Healthcare
+  industry: Medical Instruments & Supplies
+  PER: 39.215527
+  PBR: 8.0612335
+  DividendYield: 1.01
+- code: 7974
+  name: 任天堂
+  ticker: 7974.T
+  sector: Communication Services
+  industry: Electronic Gaming & Multimedia
+  PER: 33.55705
+  PBR: 4.4012103
+  DividendYield: 2.61
+- code: 8001
+  name: 伊藤忠商事
+  ticker: 8001.T
+  sector: Industrials
+  industry: Conglomerates
+  PER: 14.124387
+  PBR: 2.1783774
+  DividendYield: 0.47
+- code: 8031
+  name: 三井物産
+  ticker: 8031.T
+  sector: Industrials
+  industry: Conglomerates
+  PER: 14.367689
+  PBR: 1.6233528
+  DividendYield: 2.65
+- code: 8035
+  name: 東京エレクトロン
+  ticker: 8035.T
+  sector: Technology
+  industry: Semiconductor Equipment & Materials
+  PER: 26.5252
+  PBR: 7.134548
+  DividendYield: 1.71
+- code: 8058
+  name: 三菱商事
+  ticker: 8058.T
+  sector: Industrials
+  industry: Conglomerates
+  PER: 20.661488
+  PBR: 1.5315881
+  DividendYield: 3.04
+- code: 8306
+  name: 三菱UFJフィナンシャル・グループ
+  ticker: 8306.T
+  sector: Financial Services
+  industry: Banks - Diversified
+  PER: 14.880627
+  PBR: 1.3354013
+  DividendYield: 3.18
+- code: 8316
+  name: 三井住友フィナンシャル・グループ
+  ticker: 8316.T
+  sector: Financial Services
+  industry: Banks - Diversified
+  PER: 13.986014
+  PBR: 1.2732431
+  DividendYield: 3.13
+- code: 8411
+  name: みずほフィナンシャル・グループ
+  ticker: 8411.T
+  sector: Financial Services
+  industry: Banks - Regional
+  PER: 13.966536
+  PBR: 1.2717286
+  DividendYield: 2.58
+- code: 8729
+  name: ソニーフィナンシャルグループ
+  ticker: 8729.T
+  sector: Financial Services
+  industry: Insurance - Life
+  PER: 0.9218891
+  PBR: 1.7914464
+  DividendYield: 2.16
+- code: 8766
+  name: 東京海上ホールディングス
+  ticker: 8766.T
+  sector: Financial Services
+  industry: Insurance - Property & Casualty
+  PER: 10.822502
+  PBR: 2.2581136
+  DividendYield: 3.54
+- code: 9432
+  name: NTT
+  ticker: 9432.T
+  sector: Communication Services
+  industry: Telecom Services
+  PER: 12.5
+  PBR: 1.4072514
+  DividendYield: 3.38
+- code: 9433
+  name: KDDI
+  ticker: 9433.T
+  sector: Communication Services
+  industry: Telecom Services
+  PER: 14.992806
+  PBR: 2.0767958
+  DividendYield: 2.95
+- code: 9434
+  name: ソフトバンク
+  ticker: 9434.T
+  sector: Communication Services
+  industry: Telecom Services
+  PER: 19.27111
+  PBR: 3.5575979
+  DividendYield: 3.97
+- code: 9983
+  name: ファーストリテイリング
+  ticker: 9983.T
+  sector: Consumer Cyclical
+  industry: Apparel Retail
+  PER: 40.0
+  PBR: 7.605977
+  DividendYield: 0.92
+- code: 9984
+  name: ソフトバンクグループ
+  ticker: 9984.T
+  sector: Communication Services
+  industry: Telecom Services
+  PER: 7.999982
+  PBR: 1.7063488
+  DividendYield: 0.16

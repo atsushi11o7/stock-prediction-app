@@ -1,5 +1,5 @@
 // src/app/page.tsx
-import Image from "next/image";
+import Link from "next/link";
 
 import RightRail from "@/components/organisms/RightRail";
 import RailCard from "@/components/molecules/RailCard";
@@ -8,9 +8,16 @@ import TickerScroller, { type TickerItem } from "@/components/organisms/TickerSc
 import { getForecast } from "@/libs/repositories/forecastRepository";
 import { getTopMovers } from "@/libs/repositories/marketRepository";
 
+type Mover = {
+    ticker: string;
+    name?: string;
+    price?: number;
+    changePct?: number;
+};
+
 export default async function Home() {
     // 1) movers を取得（モックフォールバック込み）
-    const movers = await getTopMovers(4); // 上位4件
+    const movers = (await getTopMovers(4)) as Mover[]; // ← any回避のため最低限の型を付与
 
     // 2) 上位1件を “ピックアップ” として大きめカードに
     const featured = movers[0] ?? { ticker: "7203.T", name: "TOYOTA", changePct: 0 };
@@ -29,8 +36,8 @@ export default async function Home() {
     const moverItems: TickerItem[] = movers.map((m) => ({
         symbol: m.ticker,
         name: m.name ?? m.ticker,
-        price: (m as any).price ?? 0,
-        changePct: m.changePct ?? 0,
+        price: typeof m.price === "number" ? m.price : 0,          // ← any不使用・型ガード
+        changePct: typeof m.changePct === "number" ? m.changePct : 0,
         size: "sm",
     }));
 
@@ -60,11 +67,11 @@ export default async function Home() {
                             <StockForecastCard
                                 data={data}
                                 title={`${featured.ticker} Stock Forecast`}
-                                subtitle={`${featured.name ?? ""} / Δ ${featured.changePct > 0 ? "+" : ""}${featured.changePct}%`}
+                                subtitle={`${featured.name ?? ""} / Δ ${featured.changePct && featured.changePct > 0 ? "+" : ""}${featured.changePct ?? 0}%`}
                                 tag="Today’s mover"
                                 metrics={[
                                     { label: "Price",  value: `¥${(others[0]?.price ?? 12840).toLocaleString()}` },
-                                    { label: "Change", value: `${featured.changePct > 0 ? "+" : ""}${featured.changePct}%`, tone: featured.changePct >= 0 ? "up" : "down" },
+                                    { label: "Change", value: `${featured.changePct && featured.changePct > 0 ? "+" : ""}${featured.changePct ?? 0}%`, tone: (featured.changePct ?? 0) >= 0 ? "up" : "down" },
                                     { label: "PER",    value: "12.7x", tone: "brand" },
                                     { label: "Sector", value: "Automobile" },
                                 ]}
@@ -78,9 +85,9 @@ export default async function Home() {
                         </div>
 
                         <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                            <a href="/stocks"  className="rounded-2xl border border-white/10 bg-[var(--color-surface-1)] px-4 py-3 hover:bg-[var(--color-surface-2)] transition">銘柄一覧へ</a>
-                            <a href="/trends"  className="rounded-2xl border border-white/10 bg-[var(--color-surface-1)] px-4 py-3 hover:bg-[var(--color-surface-2)] transition">トレンドを見る</a>
-                            <a href="/compare" className="rounded-2xl border border-white/10 bg-[var(--color-surface-1)] px-4 py-3 hover:bg-[var(--color-surface-2)] transition">銘柄を比較</a>
+                            <Link href="/stocks"  className="rounded-2xl border border-white/10 bg-[var(--color-surface-1)] px-4 py-3 hover:bg-[var(--color-surface-2)] transition">銘柄一覧へ</Link>
+                            <Link href="/trends"  className="rounded-2xl border border-white/10 bg-[var(--color-surface-1)] px-4 py-3 hover:bg-[var(--color-surface-2)] transition">トレンドを見る</Link>
+                            <Link href="/compare" className="rounded-2xl border border-white/10 bg-[var(--color-surface-1)] px-4 py-3 hover:bg-[var(--color-surface-2)] transition">銘柄を比較</Link>
                         </div>
                     </section>
                 </main>
@@ -89,7 +96,7 @@ export default async function Home() {
                     <RailCard title="Market Overview">
                         <ul className="space-y-2 text-sm">
                             <li className="flex justify-between"><span>Nikkei 225</span><span className="text-green-400">+0.8%</span></li>
-                            <li className="flex justify-between"><span>S&P 500</span><span className="text-red-400">-0.3%</span></li>
+                            <li className="flex justify-between"><span>S&amp;P 500</span><span className="text-red-400">-0.3%</span></li>
                         </ul>
                     </RailCard>
 
