@@ -1,0 +1,16 @@
+// .devcontainer/backend/devcontainer.json
+{
+  "name": "Backend Dev Container",
+
+  "dockerComposeFile": "docker-compose.yml",  // 同ディレクトリの compose を使用
+  "service": "app",  // VS Code が入るコンテナ（compose の service 名）
+
+  "workspaceFolder": "/workspace",
+  
+  "remoteUser": "rails",
+  "updateRemoteUserUID": true,
+  "overrideCommand": false,
+
+  // Rails / bundler セットアップ
+  "postCreateCommand": "bash -lc 'gem install bundler -N && gem install rails -N -v \"~> 7.2\" && bundle install'"
+}

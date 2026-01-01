@@ -13,3 +13,9 @@ ml/models/*
 !ml/models/README.md
 ml/predictions/*
 !ml/predictions/README.md
+
+frontend/.next
+frontend/node_modules
+frontend/src/.next
+
+.devcontainer/backend/.env
