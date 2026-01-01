@@ -1,0 +1,44 @@
+# config/fetch_daily_backfill.yaml
+# 日次データ取得設定（学習用バックフィル）
+#
+# 使用例:
+#   python src/data/fetch_daily_backfill.py --config config/fetch_daily_backfill.yaml
+
+# 環境設定: "local" または "s3"
+env: "local"
+
+# yfinance パラメータ
+yf:
+  interval: "1d"
+  period: "10y"
+  use_adjclose: true
+
+fields:
+  - "open"
+  - "high"
+  - "low"
+  - "close"
+  - "adjclose"
+  - "volume"
+
+# ローカル環境設定
+local:
+  input:
+    universe_path: "config/universes/enrich_topix_core_30_20251031.yaml"
+  output:
+    dir: "data/training/daily"
+
+# S3環境設定
+s3:
+  bucket: "stock-forecast-prod-apne1"
+  input:
+    universe_key: "config/universes/enrich_topix_core_30_20251031.yaml"
+  output:
+    daily_prefix: "market_data/training/daily"
+
+retry:
+  times: 3
+  sleep_seconds: 1.0
+
+logging:
+  level: "INFO"

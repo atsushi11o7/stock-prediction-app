@@ -1,0 +1,38 @@
+# .devcontainer/backend/docker-compose.yml
+version: "3.9"
+
+services:
+  app:
+    build:
+      context: ../..  # プロジェクトルートをビルドコンテキストに指定
+      dockerfile: .devcontainer/backend/Dockerfile  # backend 用 Dockerfile
+    volumes:
+      - ../..:/workspace  # ローカルのプロジェクト全体を /workspace にマウント
+    working_dir: /workspace/backend
+    ports:
+      - "3000:3000"  # Rails の 3000 番ポートをホストに公開
+    environment:
+      RAILS_ENV: development
+      POSTGRES_HOST: db
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    depends_on:
+      - db
+
+    command: sleep infinity
+    tty: true 
+
+  db:
+    image: postgres:16  # 公式 PostgreSQL イメージを使用
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5432:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data  # DB 永続化用ボリューム
+
+volumes:
+  db-data:

@@ -1,0 +1,71 @@
+# config/sectors.yaml
+# セクター定義マスター
+#
+# 使用方法:
+#   - universeファイルのsectorフィールドをこのマッピングでsector_idに変換
+#   - 学習・推論で一貫したセクターIDを使用
+#
+# 注意:
+#   - id: 0 は Unknown（未定義または不明なセクター）に予約
+#   - 新しいセクターを追加する場合は末尾に追加
+
+sectors:
+  # 未定義・不明
+  - id: 0
+    name: "Unknown"
+    description: "未定義または不明なセクター"
+
+  # 素材
+  - id: 1
+    name: "Basic Materials"
+    description: "素材（化学、金属、鉱業など）"
+
+  # 通信
+  - id: 2
+    name: "Communication Services"
+    description: "通信サービス（電気通信、メディアなど）"
+
+  # 一般消費財
+  - id: 3
+    name: "Consumer Cyclical"
+    description: "一般消費財（自動車、小売、娯楽など）"
+
+  # 生活必需品
+  - id: 4
+    name: "Consumer Defensive"
+    description: "生活必需品（食品、飲料、日用品など）"
+
+  # エネルギー
+  - id: 5
+    name: "Energy"
+    description: "エネルギー（石油、ガス、再生可能エネルギーなど）"
+
+  # 金融
+  - id: 6
+    name: "Financial Services"
+    description: "金融サービス（銀行、保険、証券など）"
+
+  # ヘルスケア
+  - id: 7
+    name: "Healthcare"
+    description: "ヘルスケア（製薬、医療機器、バイオテクノロジーなど）"
+
+  # 資本財
+  - id: 8
+    name: "Industrials"
+    description: "資本財・サービス（機械、建設、航空宇宙など）"
+
+  # 不動産
+  - id: 9
+    name: "Real Estate"
+    description: "不動産（REIT、不動産開発など）"
+
+  # テクノロジー
+  - id: 10
+    name: "Technology"
+    description: "テクノロジー（ソフトウェア、半導体、ITサービスなど）"
+
+  # 公益事業
+  - id: 11
+    name: "Utilities"
+    description: "公益事業（電力、ガス、水道など）"

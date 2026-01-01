@@ -1,0 +1,21 @@
+# 静的特徴量付与設定
+#
+# 使用例:
+#   python src/features/enrich_universe.py --config config/enrich_universe.yaml
+
+# 環境設定: "local" または "s3"
+env: "s3"
+
+# 更新モード: "full" または "valuation-only"
+update_mode: "valuation-only"
+
+# ローカル環境設定
+local:
+  input_path: "config/universes/topix_core_30_20251031.yaml"
+  output_path: "config/universes/enrich_topix_core_30_20251031.yaml"
+
+# S3環境設定
+s3:
+  bucket: "stock-forecast-prod-apne1"
+  input_key: "config/universes/topix_core_30_20251031.yaml"
+  output_key: "config/universes/enrich_topix_core_30_20251031.yaml"
