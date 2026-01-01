@@ -11,6 +11,9 @@
 /.env*
 !/.env*.erb
 
+# Ignore production environment files
+/docker/.env.prod
+
 # Ignore all logfiles and tempfiles.
 /log/*
 /tmp/*
