@@ -54,14 +54,16 @@ class ForecastFormatterService
     if @options[:start_date] && @options[:end_date]
       [parse_date(@options[:start_date]), parse_date(@options[:end_date])]
     elsif @options[:years]
-      # 前月末を基準にして、正確にN年間（N*12ヶ月）にする
-      end_date = Date.new(Date.today.year, Date.today.month, 1) - 1.day
-      start_date = Date.new(end_date.year - @options[:years].to_i, end_date.month, 1)
+      # 今月を基準にN年前から前月までの期間（N*12ヶ月）にする
+      this_month = Date.new(Date.today.year, Date.today.month, 1)
+      end_date = this_month - 1.day  # 前月末
+      start_date = Date.new(this_month.year - @options[:years].to_i, this_month.month, 1)
       [start_date, end_date]
     else
-      # 前月末を基準にして、正確に3年間（36ヶ月）にする
-      end_date = Date.new(Date.today.year, Date.today.month, 1) - 1.day
-      start_date = Date.new(end_date.year - DEFAULT_YEARS, end_date.month, 1)
+      # 今月を基準に3年前から前月までの期間（36ヶ月）にする
+      this_month = Date.new(Date.today.year, Date.today.month, 1)
+      end_date = this_month - 1.day  # 前月末
+      start_date = Date.new(this_month.year - DEFAULT_YEARS, this_month.month, 1)
       [start_date, end_date]
     end
   end
