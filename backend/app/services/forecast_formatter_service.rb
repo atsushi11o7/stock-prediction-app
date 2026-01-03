@@ -47,18 +47,21 @@ class ForecastFormatterService
   private
 
   # オプションに基づいて表示期間を計算する
+  # 実績期間は前月までとし、予測は当月から開始する
   #
   # @return [Array<Date, Date>] 開始日と終了日の配列
   def calculate_date_range
     if @options[:start_date] && @options[:end_date]
       [parse_date(@options[:start_date]), parse_date(@options[:end_date])]
     elsif @options[:years]
-      end_date = Date.today
-      start_date = end_date - @options[:years].to_i.years
+      # 前月末を基準にして、正確にN年間（N*12ヶ月）にする
+      end_date = Date.new(Date.today.year, Date.today.month, 1) - 1.day
+      start_date = Date.new(end_date.year - @options[:years].to_i, end_date.month, 1)
       [start_date, end_date]
     else
-      end_date = Date.today
-      start_date = end_date - DEFAULT_YEARS.years
+      # 前月末を基準にして、正確に3年間（36ヶ月）にする
+      end_date = Date.new(Date.today.year, Date.today.month, 1) - 1.day
+      start_date = Date.new(end_date.year - DEFAULT_YEARS, end_date.month, 1)
       [start_date, end_date]
     end
   end

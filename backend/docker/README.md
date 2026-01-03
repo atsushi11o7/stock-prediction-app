@@ -19,7 +19,7 @@ backend/docker/
 ### 1. VPSにSSH接続
 
 ```bash
-ssh -i ~/Documents/秘密鍵/app-server-01.pem root@162.43.21.106
+ssh -i 秘密鍵.pem root@xxx.xx.xx.xxx
 ```
 
 ### 2. リポジトリをクローン
