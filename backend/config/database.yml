@@ -85,6 +85,4 @@ test:
 #
 production:
   <<: *default
-  database: backend_production
-  username: backend
-  password: <%= ENV["BACKEND_DATABASE_PASSWORD"] %>
+  database: <%= ENV.fetch("POSTGRES_DB", "stock_prediction_production") %>
