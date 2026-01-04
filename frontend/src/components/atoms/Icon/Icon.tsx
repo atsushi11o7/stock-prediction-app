@@ -1,7 +1,7 @@
 // src/components/atoms/Icon/Icon.tsx
 "use client";
 
-import { clsx } from "clsx";
+import clsx from "clsx";
 import {
     Home, LineChart, Newspaper, TrendingUp, GitCompare, Search,
     type LucideProps,

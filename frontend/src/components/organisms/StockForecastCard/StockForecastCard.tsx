@@ -68,12 +68,18 @@ export default function StockForecastCard({
     return (
         <section
             className={clsx(
-                "rounded-2xl border border-white/10 bg-[var(--color-panel)]",
-                "p-5 md:p-6",
+                "group relative overflow-hidden rounded-3xl border border-white/10",
+                "bg-[var(--color-surface-1)]",
+                "p-6 md:p-8 shadow-xl",
+                "transition-all duration-300 hover:shadow-2xl hover:shadow-[var(--color-brand-500)]/10",
                 className
             )}
             aria-label={`${data.ticker} stock forecast`}
         >
+            {/* Overlay */}
+            <div className="absolute inset-0 bg-white/0 group-hover:bg-white/5 transition-all duration-300"></div>
+
+            <div className="relative z-10">
             {/* ヘッダー */}
             <header className="mb-4 flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -160,6 +166,7 @@ export default function StockForecastCard({
                     </Label>
                 </div>
             )}
+            </div>
         </section>
     );
 }

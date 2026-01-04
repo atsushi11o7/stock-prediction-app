@@ -8,12 +8,28 @@ module Api
       companies = Company.includes(:sector, :industry).order(:code)
 
       render json: companies.map { |company|
+        latest_price = company.latest_stock_price
+        latest_kpi = company.latest_kpi
+        latest_forecast = company.latest_forecast
+
         {
           ticker: company.ticker,
           code: company.code,
           name: company.name,
           sector: company.sector&.name,
-          industry: company.industry&.name
+          industry: company.industry&.name,
+          price: latest_price&.close&.to_f,
+          changePct: latest_price&.change_pct&.to_f,
+          kpi: latest_kpi ? {
+            per: latest_kpi.per&.to_f,
+            pbr: latest_kpi.pbr&.to_f,
+            dividendYield: latest_kpi.dividend_yield&.to_f,
+            marketCap: latest_kpi.market_cap&.to_f,
+            roe: latest_kpi.roe&.to_f
+          } : nil,
+          forecast: latest_forecast ? {
+            predicted12mReturn: (latest_forecast.predicted_12m_return * 100).round(2)
+          } : nil
         }
       }
     end
