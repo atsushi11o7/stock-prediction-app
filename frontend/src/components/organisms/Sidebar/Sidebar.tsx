@@ -1,6 +1,7 @@
 // src/components/organisms/Sidebar/Sidebar.tsx
 "use client";
 
+import { useState } from "react";
 import Logo from "@/components/atoms/Logo";
 import NavItem from "@/components/atoms/NavItem";
 import SearchBar from "@/components/molecules/SearchBar";
@@ -15,7 +16,7 @@ type Item = {
 export type SidebarProps = {
     /** サイドバーの外側幅(px) */
     width?: number;
-    /** ロゴ/検索/ナビの“共通の見た目幅”(px) */
+    /** ロゴ/検索/ナビの"共通の見た目幅"(px) */
     contentWidth?: number;
     /** メインナビ */
     items?: Item[];
@@ -39,16 +40,71 @@ export default function Sidebar({
     footerSlot,
     className,
 }: SidebarProps) {
+    const [isOpen, setIsOpen] = useState(false);
     const contentStyle = { width: "100%", maxWidth: contentWidth };
 
     return (
-        <aside
-            style={{ width }}
-            className={clsx(
-                "flex h-dvh flex-col bg-[var(--color-panel)] border-r border-white/10",
-                className
+        <>
+            {/* ハンバーガーメニューボタン（モバイル・タブレットのみ表示） */}
+            <button
+                onClick={() => setIsOpen(!isOpen)}
+                className={clsx(
+                    "fixed top-4 left-4 z-50 lg:hidden",
+                    "w-14 h-14 rounded-2xl",
+                    "bg-gradient-to-br from-[var(--color-surface-2)] to-[var(--color-surface-3)]",
+                    "border border-white/20",
+                    "flex items-center justify-center",
+                    "hover:border-[var(--color-brand-500)] hover:shadow-lg hover:shadow-[var(--color-brand-500)]/20",
+                    "transition-all duration-300",
+                    "shadow-xl backdrop-blur-sm",
+                    isOpen && "bg-gradient-to-br from-[var(--color-brand-500)] to-[var(--color-brand-600)]"
+                )}
+                aria-label="メニュー"
+            >
+                <div className="relative w-6 h-5 flex flex-col justify-center gap-1.5">
+                    <span
+                        className={clsx(
+                            "block h-0.5 bg-white transition-all duration-300 origin-center",
+                            isOpen ? "rotate-45 translate-y-2" : ""
+                        )}
+                    />
+                    <span
+                        className={clsx(
+                            "block h-0.5 bg-white transition-all duration-300",
+                            isOpen ? "opacity-0" : ""
+                        )}
+                    />
+                    <span
+                        className={clsx(
+                            "block h-0.5 bg-white transition-all duration-300 origin-center",
+                            isOpen ? "-rotate-45 -translate-y-2" : ""
+                        )}
+                    />
+                </div>
+            </button>
+
+            {/* オーバーレイ（モバイル・タブレット時、メニュー開時のみ） */}
+            {isOpen && (
+                <div
+                    className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+                    onClick={() => setIsOpen(false)}
+                />
             )}
-        >
+
+            {/* サイドバー本体 */}
+            <aside
+                style={{ width }}
+                className={clsx(
+                    "flex h-screen flex-col bg-[var(--color-panel)] border-r border-white/10",
+                    className,
+                    // 常に固定位置
+                    "fixed top-0 left-0 bottom-0 z-40 transition-transform duration-300",
+                    // モバイル・タブレット: 左に隠す
+                    isOpen ? "translate-x-0" : "-translate-x-full",
+                    // デスクトップ: 常に表示
+                    "lg:translate-x-0"
+                )}
+            >
             <div className="pt-6 pb-3">
                 <div
                     className="mx-auto flex flex-col items-center space-y-6"
@@ -85,5 +141,6 @@ export default function Sidebar({
                 </div>
             </div>
         </aside>
+        </>
     );
 }

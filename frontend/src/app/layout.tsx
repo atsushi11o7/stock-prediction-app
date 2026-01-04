@@ -29,13 +29,11 @@ export default function RootLayout({
     return (
         <html lang="ja" className={`${notoSansJp.variable} ${geistMono.variable}`}>
             <body className="bg-[var(--color-background)] text-[var(--color-text-1)]">
-                {/* 固定サイドバー（左端に張り付き） */}
-                <div className="fixed inset-y-0 left-0 w-[268px] border-r border-white/10 bg-[var(--color-panel)]">
-                    <Sidebar />
-                </div>
+                {/* Sidebarコンポーネント（内部でハンバーガーメニュー機能を持つ） */}
+                <Sidebar />
 
-                {/* サイドバー幅ぶんだけ押し出して、メイン+右レールを2カラムで */}
-                <div className="pl-[268px] min-h-dvh grid grid-cols-[1fr_auto]">
+                {/* メインコンテンツエリア - デスクトップではサイドバー幅分を左にマージン */}
+                <div className="lg:pl-[268px] min-h-dvh">
                     {children}
                 </div>
             </body>
