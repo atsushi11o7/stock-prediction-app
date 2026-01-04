@@ -2,6 +2,9 @@
 
 import React from "react";
 import clsx from "clsx";
+import { formatYen, formatPercent } from "@/libs/utils/formatters";
+import { cardPaddingSizeMap, textSizeMap } from "@/libs/styles/sizeUtils";
+import { textColorMap } from "@/libs/styles/colorThemes";
 
 export type TickerCardProps = {
     symbol: string;
@@ -12,15 +15,6 @@ export type TickerCardProps = {
     className?: string;
 };
 
-function yen(v: number) {
-    return `¥${v.toLocaleString("ja-JP")}`;
-}
-
-function pct(v: number) {
-    const s = `${v > 0 ? "+" : ""}${v.toFixed(2)}%`;
-    return s;
-}
-
 export default function TickerCard({
     symbol,
     name,
@@ -29,15 +23,15 @@ export default function TickerCard({
     size = "md",
     className,
 }: TickerCardProps) {
-    const pad = size === "sm" ? "p-3" : "p-4";
-    const title = size === "sm" ? "text-[11px]" : "text-xs";
-    const priceCls = size === "sm" ? "text-base" : "text-lg";
+    const pad = cardPaddingSizeMap[size];
+    const title = size === "sm" ? textSizeMap.xs : textSizeMap.md;
+    const priceCls = size === "sm" ? textSizeMap.lg : textSizeMap.xl;
 
     const tone =
         changePct > 0
-            ? "text-[var(--color-success)]"
+            ? textColorMap.success
             : changePct < 0
-            ? "text-[var(--color-danger)]"
+            ? textColorMap.danger
             : "text-[var(--color-text-2)]";
 
     return (
@@ -68,10 +62,10 @@ export default function TickerCard({
 
             <div>
                 <div className={clsx("mt-2 font-semibold leading-tight", priceCls)}>
-                    {yen(price)}
+                    {formatYen(price)}
                 </div>
                 <div className={clsx("mt-1 text-[12px] font-semibold", tone)}>
-                    {pct(changePct)}
+                    {formatPercent(changePct)}
                 </div>
             </div>
         </div>

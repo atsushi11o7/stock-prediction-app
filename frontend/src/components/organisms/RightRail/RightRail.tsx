@@ -3,31 +3,31 @@
 import clsx from "clsx";
 
 export type RightRailProps = {
-    /** 右レールの固定幅(px) */
-    width?: number;           // 例: 320
     /** 上下左右の内側余白 */
     paddingClass?: string;    // 例: "px-4 py-5"
     className?: string;
-    children?: React.ReactNode; // ← 差し込み
+    children?: React.ReactNode;
 };
 
 export default function RightRail({
-    width = 320,
     paddingClass = "px-4 py-5",
     className,
     children,
 }: RightRailProps) {
     return (
         <aside
-            style={{ width }}
             className={clsx(
-                "border-l border-white/10 bg-[var(--color-panel)]",
-                "flex flex-col gap-4 overflow-y-auto",
+                // モバイル・タブレット: mainの下に表示（通常のブロック要素）
+                // デスクトップ: グリッドの右カラム
+                "flex flex-col",
+                "border-t lg:border-t-0 lg:border-l border-white/10 bg-[var(--color-panel)]",
                 paddingClass,
                 className
             )}
         >
-            {children}
+            <div className="flex flex-col gap-4">
+                {children}
+            </div>
         </aside>
     );
 }
