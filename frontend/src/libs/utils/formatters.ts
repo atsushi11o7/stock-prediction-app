@@ -10,7 +10,7 @@
  * @returns フォーマットされた文字列
  */
 export function formatYen(value: number | undefined | null, prefix: "¥" | "円" = "¥"): string {
-    if (value === undefined || value === null || isNaN(value)) {
+    if (value === undefined || value === null || typeof value !== "number" || isNaN(value)) {
         return "N/A";
     }
     const formatted = value.toLocaleString("ja-JP");
@@ -24,7 +24,7 @@ export function formatYen(value: number | undefined | null, prefix: "¥" | "円"
  * @returns フォーマットされた文字列 (例: "+2.50%", "-1.23%")
  */
 export function formatPercent(value: number | undefined | null, decimals: number = 2): string {
-    if (value === undefined || value === null || isNaN(value)) {
+    if (value === undefined || value === null || typeof value !== "number" || isNaN(value)) {
         return "N/A";
     }
     const sign = value > 0 ? "+" : "";
@@ -37,7 +37,7 @@ export function formatPercent(value: number | undefined | null, decimals: number
  * @returns フォーマットされた文字列
  */
 export function formatNumber(value: number | undefined | null): string {
-    if (value === undefined || value === null || isNaN(value)) {
+    if (value === undefined || value === null || typeof value !== "number" || isNaN(value)) {
         return "N/A";
     }
     return value.toLocaleString("ja-JP");

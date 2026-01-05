@@ -114,7 +114,7 @@ export default function Sidebar({
                         <Logo width={contentWidth} />
                     </div>
 
-                    <SearchBar size="md" />
+                    <SearchBar size="md" actionPath="/stocks" placeholder="銘柄を検索..." />
                 </div>
             </div>
 
