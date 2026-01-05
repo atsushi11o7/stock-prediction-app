@@ -6,7 +6,6 @@ const meta: Meta<typeof RightRail> = {
     title: "Organisms/RightRail",
     component: RightRail,
     args: {
-        width: 320,
         paddingClass: "px-4 py-5",
     },
     parameters: {
