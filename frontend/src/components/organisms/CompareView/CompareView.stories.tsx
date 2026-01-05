@@ -1,4 +1,4 @@
-import type { Meta, StoryObj } from "@storybook/react";
+import type { Meta, StoryObj } from "@storybook/nextjs";
 import CompareView from "./CompareView";
 import type { StockDetail } from "@/libs/repositories/stockRepository";
 
