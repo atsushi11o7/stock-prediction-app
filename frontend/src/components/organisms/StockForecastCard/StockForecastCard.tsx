@@ -9,7 +9,6 @@ import type { ForecastChartProps } from "@/components/organisms/ForecastChart/Fo
 
 import Legend from "@/components/molecules/Legend/Legend";
 import MetricTile, { type MetricTileProps } from "@/components/molecules/MetricTile/MetricTile";
-import Label, { type LabelProps } from "@/components/atoms/Label/Label";
 
 import type { StockForecastData } from "@/libs/chart/types";
 
@@ -158,14 +157,6 @@ export default function StockForecastCard({
                 </footer>
             )}
 
-            {/* 補助説明（任意） */}
-            {!subtitle && metrics.length === 0 && (
-                <div className="mt-3">
-                    <Label tone={"muted" satisfies LabelProps["tone"]} size="xs">
-                        データはダミーです。Rails バックエンド接続後に置き換わります。
-                    </Label>
-                </div>
-            )}
             </div>
         </section>
     );

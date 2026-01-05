@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Badge from "@/components/atoms/Badge";
 import { formatYen, formatPercent } from "@/libs/utils/formatters";
 import type { StockDetail } from "@/libs/repositories/stockRepository";
@@ -11,10 +11,12 @@ type SortOrder = "asc" | "desc";
 
 type Props = {
     stocks: StockDetail[];
+    initialSearchTerm?: string;
 };
 
-export default function StocksTable({ stocks }: Props) {
-    const [searchTerm, setSearchTerm] = useState("");
+export default function StocksTable({ stocks, initialSearchTerm = "" }: Props) {
+    const router = useRouter();
+    const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
     const [sortKey, setSortKey] = useState<SortKey>("changePct");
     const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
 
@@ -80,8 +82,8 @@ export default function StocksTable({ stocks }: Props) {
                     bVal = b.kpi?.dividendYield ?? -Infinity;
                     break;
                 case "predicted12mReturn":
-                    aVal = a.forecast?.predicted12mReturn ?? -Infinity;
-                    bVal = b.forecast?.predicted12mReturn ?? -Infinity;
+                    aVal = a.forecast?.predicted12mReturn != null ? Number(a.forecast.predicted12mReturn) : -Infinity;
+                    bVal = b.forecast?.predicted12mReturn != null ? Number(b.forecast.predicted12mReturn) : -Infinity;
                     break;
             }
 
@@ -222,15 +224,13 @@ export default function StocksTable({ stocks }: Props) {
                             filteredAndSortedStocks.map((stock) => (
                                 <tr
                                     key={stock.ticker}
-                                    className="border-b border-white/5 last:border-0 hover:bg-[var(--color-surface-2)] transition-colors"
+                                    className="border-b border-white/5 last:border-0 hover:bg-[var(--color-surface-2)] transition-colors cursor-pointer"
+                                    onClick={() => router.push(`/stocks/${stock.ticker}`)}
                                 >
                                     <td className="px-4 py-3">
-                                        <Link
-                                            href={`/stocks/${stock.ticker}`}
-                                            className="text-sm font-medium text-[var(--color-brand-500)] hover:underline"
-                                        >
+                                        <span className="text-sm font-medium text-[var(--color-text-1)]">
                                             {stock.ticker}
-                                        </Link>
+                                        </span>
                                     </td>
                                     <td className="px-4 py-3">
                                         <div className="text-sm font-medium text-[var(--color-text-1)]">{stock.name}</div>
@@ -269,12 +269,12 @@ export default function StocksTable({ stocks }: Props) {
                                         </span>
                                     </td>
                                     <td className="px-4 py-3 text-right">
-                                        {stock.forecast?.predicted12mReturn !== undefined ? (
+                                        {stock.forecast?.predicted12mReturn != null ? (
                                             <Badge
-                                                tone={stock.forecast.predicted12mReturn >= 0 ? "success" : "danger"}
+                                                tone={Number(stock.forecast.predicted12mReturn) >= 0 ? "success" : "danger"}
                                                 size="sm"
                                             >
-                                                {formatPercent(stock.forecast.predicted12mReturn)}
+                                                {formatPercent(Number(stock.forecast.predicted12mReturn))}
                                             </Badge>
                                         ) : (
                                             <span className="text-sm text-[var(--color-text-3)]">N/A</span>
