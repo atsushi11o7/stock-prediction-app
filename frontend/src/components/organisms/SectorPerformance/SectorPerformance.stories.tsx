@@ -1,4 +1,4 @@
-import type { Meta, StoryObj } from "@storybook/react";
+import type { Meta, StoryObj } from "@storybook/nextjs";
 import SectorPerformance from "./SectorPerformance";
 import type { StockDetail } from "@/libs/repositories/stockRepository";
 
