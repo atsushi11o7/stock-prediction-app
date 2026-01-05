@@ -1,7 +1,12 @@
 import StocksTable from "@/components/organisms/StocksTable";
 import { getAllStocks } from "@/libs/repositories/stockRepository";
 
-export default async function StocksPage() {
+type Props = {
+    searchParams: Promise<{ q?: string }>;
+};
+
+export default async function StocksPage({ searchParams }: Props) {
+    const { q } = await searchParams;
     const stocks = await getAllStocks();
 
     return (
@@ -19,7 +24,7 @@ export default async function StocksPage() {
                     </div>
 
                     {/* 銘柄テーブル */}
-                    <StocksTable stocks={stocks} />
+                    <StocksTable stocks={stocks} initialSearchTerm={q} />
                 </section>
             </main>
         </div>

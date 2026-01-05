@@ -173,7 +173,9 @@ export default async function Home() {
                                 >
                                     <div className="absolute inset-0 bg-white/0 group-hover:bg-white/5 transition-all duration-300"></div>
                                     <div className="relative">
-                                        <div className="text-4xl mb-3 transform group-hover:scale-110 transition-transform duration-300">📈</div>
+                                        <div className="w-12 h-12 mb-3 rounded-xl bg-[var(--color-brand-500)]/10 flex items-center justify-center transform group-hover:scale-110 transition-transform duration-300">
+                                            <svg className="w-6 h-6 text-[var(--color-brand-500)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
+                                        </div>
                                         <h3 className="font-bold text-lg mb-2 group-hover:text-[var(--color-brand-500)] transition-colors">銘柄一覧</h3>
                                         <p className="text-sm text-[var(--color-text-3)] leading-relaxed">全銘柄の株価と詳細情報を確認</p>
                                     </div>
@@ -184,7 +186,9 @@ export default async function Home() {
                                 >
                                     <div className="absolute inset-0 bg-white/0 group-hover:bg-white/5 transition-all duration-300"></div>
                                     <div className="relative">
-                                        <div className="text-4xl mb-3 transform group-hover:scale-110 transition-transform duration-300">🔮</div>
+                                        <div className="w-12 h-12 mb-3 rounded-xl bg-[var(--color-brand-500)]/10 flex items-center justify-center transform group-hover:scale-110 transition-transform duration-300">
+                                            <svg className="w-6 h-6 text-[var(--color-brand-500)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+                                        </div>
                                         <h3 className="font-bold text-lg mb-2 group-hover:text-[var(--color-brand-500)] transition-colors">予測ランキング</h3>
                                         <p className="text-sm text-[var(--color-text-3)] leading-relaxed">AI予測による期待リターン順</p>
                                     </div>
@@ -195,7 +199,9 @@ export default async function Home() {
                                 >
                                     <div className="absolute inset-0 bg-white/0 group-hover:bg-white/5 transition-all duration-300"></div>
                                     <div className="relative">
-                                        <div className="text-4xl mb-3 transform group-hover:scale-110 transition-transform duration-300">🎯</div>
+                                        <div className="w-12 h-12 mb-3 rounded-xl bg-[var(--color-brand-500)]/10 flex items-center justify-center transform group-hover:scale-110 transition-transform duration-300">
+                                            <svg className="w-6 h-6 text-[var(--color-brand-500)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
+                                        </div>
                                         <h3 className="font-bold text-lg mb-2 group-hover:text-[var(--color-brand-500)] transition-colors">スクリーニング</h3>
                                         <p className="text-sm text-[var(--color-text-3)] leading-relaxed">条件を指定して銘柄を絞り込み</p>
                                     </div>
@@ -212,7 +218,9 @@ export default async function Home() {
                                 <div className="group relative overflow-hidden rounded-2xl border border-white/10 bg-[var(--color-surface-1)] p-7 transition-all duration-300 hover:border-[var(--color-brand-500)]/30 hover:shadow-xl hover:shadow-[var(--color-brand-500)]/10">
                                     <div className="absolute inset-0 bg-white/0 group-hover:bg-white/5 transition-all duration-300"></div>
                                     <div className="relative flex items-start gap-4">
-                                        <div className="shrink-0 text-4xl transform group-hover:scale-110 transition-transform duration-300">🤖</div>
+                                        <div className="shrink-0 w-12 h-12 rounded-xl bg-[var(--color-brand-500)]/10 flex items-center justify-center transform group-hover:scale-110 transition-transform duration-300">
+                                            <svg className="w-6 h-6 text-[var(--color-brand-500)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                                        </div>
                                         <div>
                                             <h3 className="font-bold text-lg mb-2 group-hover:text-[var(--color-brand-500)] transition-colors">高精度AI予測</h3>
                                             <p className="text-sm text-[var(--color-text-3)] leading-relaxed">
@@ -224,7 +232,9 @@ export default async function Home() {
                                 <div className="group relative overflow-hidden rounded-2xl border border-white/10 bg-[var(--color-surface-1)] p-7 transition-all duration-300 hover:border-[var(--color-brand-500)]/30 hover:shadow-xl hover:shadow-[var(--color-brand-500)]/10">
                                     <div className="absolute inset-0 bg-white/0 group-hover:bg-white/5 transition-all duration-300"></div>
                                     <div className="relative flex items-start gap-4">
-                                        <div className="shrink-0 text-4xl transform group-hover:scale-110 transition-transform duration-300">📊</div>
+                                        <div className="shrink-0 w-12 h-12 rounded-xl bg-[var(--color-brand-500)]/10 flex items-center justify-center transform group-hover:scale-110 transition-transform duration-300">
+                                            <svg className="w-6 h-6 text-[var(--color-brand-500)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+                                        </div>
                                         <div>
                                             <h3 className="font-bold text-lg mb-2 group-hover:text-[var(--color-brand-500)] transition-colors">リアルタイム分析</h3>
                                             <p className="text-sm text-[var(--color-text-3)] leading-relaxed">

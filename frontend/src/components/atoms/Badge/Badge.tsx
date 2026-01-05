@@ -7,7 +7,7 @@ import clsx from "clsx";
 export type BadgeProps = {
     children: React.ReactNode;
     tone?: "brand" | "success" | "danger" | "muted";
-    size?: "sm" | "md";
+    size?: "sm" | "md" | "lg";
     rounded?: "sm" | "md" | "full";
     className?: string;
 };
@@ -15,6 +15,7 @@ export type BadgeProps = {
 const SIZE = {
     sm: "text-[11px] px-2 py-[2px]",
     md: "text-xs px-2.5 py-1",
+    lg: "text-sm px-3 py-1.5",
 };
 
 const ROUNDED = {
